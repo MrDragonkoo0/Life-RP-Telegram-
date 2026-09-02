@@ -5,9 +5,9 @@
 """
 import os
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "ВСТАВ_СЮДИ_ТОКЕН_ВІД_BOTFATHER")
+BOT_TOKEN = os.environ.get("8578006162:AAEVE9rS8KTVNDQRXkhQGpY4ztB8r-KRdXE", "8578006162:AAEVE9rS8KTVNDQRXkhQGpY4ztB8r-KRdXE")
 
-if not BOT_TOKEN or BOT_TOKEN == "ВСТАВ_СЮДИ_ТОКЕН_ВІД_BOTFATHER":
+if not BOT_TOKEN or BOT_TOKEN == "8578006162:AAEVE9rS8KTVNDQRXkhQGpY4ztB8r-KRdXE":
     print(
         "⚠️  BOT_TOKEN не встановлено. "
         "Встанови змінну середовища BOT_TOKEN або впиши токен напряму в config.py"
