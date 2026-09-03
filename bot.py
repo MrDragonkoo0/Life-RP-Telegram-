@@ -210,21 +210,35 @@ async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ---------------------------------------------------------------------------
-# Робота (з таймером)
+# Робота
 # ---------------------------------------------------------------------------
 @require_registered
 async def work_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/work — просто показує список робіт."""
+    resolve_pending_work(update.effective_user.id)
+    await update.message.reply_text(texts.jobs_list_text())
+
+
+@require_registered
+async def workinfo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/workinfo [id] — детальна інформація про роботу."""
+    job_id = parse_int_arg(context, 0)
+    if job_id is None:
+        await update.message.reply_text("Використання: /workinfo [id] — див. /work")
+        return
+    await update.message.reply_text(texts.job_info_text(job_id))
+
+
+@require_registered
+async def emjoy_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/emjoy [id] — влаштуватися на роботу (запускає таймер зміни)."""
     user_id = update.effective_user.id
     resolve_pending_work(user_id)
 
-    if not context.args:
-        await update.message.reply_text(texts.jobs_list_text())
-        return
-
-    code = context.args[0].strip().lower()
-    job = JOBS_BY_CODE.get(code)
+    job_id = parse_int_arg(context, 0)
+    job = JOBS.get(job_id) if job_id is not None else None
     if not job:
-        await update.message.reply_text(texts.work_unknown_code_text())
+        await update.message.reply_text(texts.work_unknown_id_text())
         return
 
     user = db.get_user(user_id)
@@ -244,6 +258,7 @@ async def work_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(texts.work_assigned_no_timer_text())
             return
 
+    code = job["code"]
     end_ts = int(time.time()) + job["duration"]
     db.update_user(user_id, working_job=code, work_end_ts=end_ts)
     await update.message.reply_text(texts.work_start_text(job))
@@ -260,6 +275,31 @@ async def work_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "JobQueue недоступний — авто-сповіщення про завершення роботи не спрацює. "
             "Встанови залежність: pip install \"python-telegram-bot[job-queue]\""
         )
+
+
+@require_registered
+async def fire_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/fire — звільнитися. Якщо зміна ще триває, вона скасовується без оплати."""
+    user_id = update.effective_user.id
+    user = db.get_user(user_id)
+
+    if not user["working_job"]:
+        await update.message.reply_text(texts.fire_not_working_text())
+        return
+
+    job = JOBS_BY_CODE.get(user["working_job"])
+
+    # Якщо зараз йде відлік часу — скасовуємо заплановане авто-завершення.
+    if context.job_queue is not None:
+        for scheduled in context.job_queue.get_jobs_by_name(f"work_{user_id}"):
+            scheduled.schedule_removal()
+
+    db.update_user(user_id, working_job=None, work_end_ts=None)
+
+    if job:
+        await update.message.reply_text(texts.fire_success_text(job))
+    else:
+        await update.message.reply_text("✅ Ти звільнився з роботи.")
 
 
 # ---------------------------------------------------------------------------
@@ -794,6 +834,9 @@ def build_app() -> Application:
 
     # Робота
     app.add_handler(CommandHandler(["work", "Work"], work_cmd))
+    app.add_handler(CommandHandler(["workinfo", "Workinfo"], workinfo_cmd))
+    app.add_handler(CommandHandler(["emjoy", "Emjoy"], emjoy_cmd))
+    app.add_handler(CommandHandler(["fire", "Fire"], fire_cmd))
 
     # Фракції
     app.add_handler(CommandHandler("factions", factions_cmd))

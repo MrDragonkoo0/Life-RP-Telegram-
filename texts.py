@@ -71,7 +71,9 @@ def commands_text() -> str:
         "/status - показує статистику гравця\n\n"
         "Робота:\n\n"
         "/work - показує список робіт\n"
-        "/work [код] - почати роботу (напр. /work mine)\n\n"
+        "/workinfo [id] - інформація про роботу\n"
+        "/emjoy [id] - влаштуватися на роботу\n"
+        "/fire - звільнитися\n\n"
         "Фракції:\n\n"
         "/factions — список усіх фракцій\n"
         "/faction — інформація про свою фракцію\n"
@@ -123,29 +125,28 @@ def admin_commands_text() -> str:
 # ---------------------------------------------------------------------------
 # Робота
 # ---------------------------------------------------------------------------
-JOBS_LIST_DIVIDER = "━━━━━━━━━━━━━━━━━━━━"
-
-
 def jobs_list_text() -> str:
-    lines = ["💼 РОБОТИ — Life+ RP", "", JOBS_LIST_DIVIDER]
+    lines = [HEADER, "Ось повний список", DIVIDER]
     for jid, job in JOBS.items():
-        lines.append("")
-        lines.append(f"[{jid:02d}] {job['emoji']} {job['name'].upper()}")
-        lines.append("")
-        lines.append(f'Команда: "/work {job["code"]}"')
-        lines.append(f"Рівень: {job['level_required']}")
-        lines.append(f"⏱ Час роботи: {format_duration(job['duration'])}")
-        lines.append(f"💰 Зарплата: {job['salary_min']}–{job['salary_max']} ₴")
-        lines.append("")
-        lines.append(JOBS_LIST_DIVIDER)
-    lines.append("")
-    lines.append("📋 СИСТЕМА РОБОТИ")
-    lines.append("")
-    lines.append('🔹 "/work [робота]" — почати роботу')
-    lines.append("🔹 Після завершення роботи зарплата автоматично надходить на баланс.")
-    lines.append("")
-    lines.append("⚠️ Одночасно можна виконувати лише одну роботу.")
+        lines.append(f"[{jid:02d}] {job['emoji']} {job['name']} ({job['level_required']} рівень)")
+    lines.append(DIVIDER)
     return "\n".join(lines)
+
+
+def job_info_text(job_id: int) -> str:
+    job = JOBS.get(job_id)
+    if not job:
+        return "⚠️ Роботу з таким ID не знайдено. Переглянь /work."
+    return (
+        f"{HEADER}\n"
+        f"[{job_id:02d}] {job['emoji']} {job['name']}\n"
+        f"{DIVIDER}\n"
+        f"Команда: /emjoy {job_id:02d}\n"
+        f"⭐ Потрібен рівень: {job['level_required']}\n"
+        f"⏱ Час роботи: {format_duration(job['duration'])}\n"
+        f"💰 Зарплата: {job['salary_min']}–{job['salary_max']} ₴\n"
+        f"{DIVIDER}"
+    )
 
 
 def work_start_text(job: dict) -> str:
@@ -167,7 +168,7 @@ def work_busy_text(job: dict, remaining_seconds: int) -> str:
 
 
 def work_assigned_no_timer_text() -> str:
-    return "⚠️ Тобі призначена робота адміністрацією. Спершу треба звільнитися (/fire у адміна) щоб почати нову зміну."
+    return "⚠️ Тобі призначена робота адміністрацією. Спершу /fire, щоб почати нову зміну."
 
 
 def work_complete_text(job: dict, earned: int, balance: int) -> str:
@@ -180,8 +181,8 @@ def work_complete_text(job: dict, earned: int, balance: int) -> str:
     )
 
 
-def work_unknown_code_text() -> str:
-    return "⚠️ Невідома робота. Переглянь /work без аргументів, щоб побачити список і коди."
+def work_unknown_id_text() -> str:
+    return "⚠️ Невідома робота. Переглянь /work, щоб побачити список і ID."
 
 
 def work_level_too_low_text(job: dict, current_level: int) -> str:
@@ -189,6 +190,15 @@ def work_level_too_low_text(job: dict, current_level: int) -> str:
         f"⚠️ Потрібен {job['level_required']} рівень для роботи "
         f"{job['emoji']} {job['name']}, у тебе {current_level}."
     )
+
+
+def fire_success_text(job: dict) -> str:
+    return f"🚪 Ти звільнився з роботи {job['emoji']} {job['name']} достроково. Зарплата за цю зміну не нарахована."
+
+
+def fire_not_working_text() -> str:
+    return "Ти зараз ніде не працюєш."
+
 
 
 # ---------------------------------------------------------------------------
