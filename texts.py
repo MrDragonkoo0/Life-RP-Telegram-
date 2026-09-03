@@ -123,15 +123,28 @@ def admin_commands_text() -> str:
 # ---------------------------------------------------------------------------
 # Робота
 # ---------------------------------------------------------------------------
+JOBS_LIST_DIVIDER = "━━━━━━━━━━━━━━━━━━━━"
+
+
 def jobs_list_text() -> str:
-    lines = [HEADER, "Робота", DIVIDER]
+    lines = ["💼 РОБОТИ — Life+ RP", "", JOBS_LIST_DIVIDER]
     for jid, job in JOBS.items():
-        lines.append(f"{jid:02d}")
-        lines.append(f"{job['emoji']} {job['name']}")
-        lines.append(f"/work {job['code']}")
-        lines.append(format_duration(job["duration"]))
-        lines.append(f"{job['salary_min']}–{job['salary_max']} ₴")
-    lines.append(DIVIDER)
+        lines.append("")
+        lines.append(f"[{jid:02d}] {job['emoji']} {job['name'].upper()}")
+        lines.append("")
+        lines.append(f'Команда: "/work {job["code"]}"')
+        lines.append(f"Рівень: {job['level_required']}")
+        lines.append(f"⏱ Час роботи: {format_duration(job['duration'])}")
+        lines.append(f"💰 Зарплата: {job['salary_min']}–{job['salary_max']} ₴")
+        lines.append("")
+        lines.append(JOBS_LIST_DIVIDER)
+    lines.append("")
+    lines.append("📋 СИСТЕМА РОБОТИ")
+    lines.append("")
+    lines.append('🔹 "/work [робота]" — почати роботу')
+    lines.append("🔹 Після завершення роботи зарплата автоматично надходить на баланс.")
+    lines.append("")
+    lines.append("⚠️ Одночасно можна виконувати лише одну роботу.")
     return "\n".join(lines)
 
 
@@ -169,6 +182,13 @@ def work_complete_text(job: dict, earned: int, balance: int) -> str:
 
 def work_unknown_code_text() -> str:
     return "⚠️ Невідома робота. Переглянь /work без аргументів, щоб побачити список і коди."
+
+
+def work_level_too_low_text(job: dict, current_level: int) -> str:
+    return (
+        f"⚠️ Потрібен {job['level_required']} рівень для роботи "
+        f"{job['emoji']} {job['name']}, у тебе {current_level}."
+    )
 
 
 # ---------------------------------------------------------------------------

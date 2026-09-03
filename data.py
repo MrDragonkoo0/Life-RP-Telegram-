@@ -6,54 +6,55 @@
 
 # ---------------------------------------------------------------------------
 # РОБОТИ
-# id -> {code, name, emoji, duration (сек), salary_min, salary_max, xp, label, complete_desc}
+# id -> {code, name, emoji, level_required, duration (сек), salary_min, salary_max,
+#        xp, label, complete_desc}
 # code — це те, що пишеться після /work, напр. /work mine
 # ---------------------------------------------------------------------------
 JOBS = {
     1: {
-        "code": "wood", "name": "Лісопилка", "emoji": "🪵",
+        "code": "wood", "name": "Лісопилка", "emoji": "🪵", "level_required": 0,
         "duration": 120, "salary_min": 180, "salary_max": 250, "xp": 3,
         "label": "лісорубом",
         "complete_desc": "Ви нарубали дерева та здали його на склад.",
     },
     2: {
-        "code": "mine", "name": "Шахта", "emoji": "🪨",
+        "code": "mine", "name": "Шахта", "emoji": "🪨", "level_required": 0,
         "duration": 180, "salary_min": 280, "salary_max": 380, "xp": 4,
         "label": "шахтарем",
         "complete_desc": "Ви добули руду та здали її на склад.",
     },
     3: {
-        "code": "farm", "name": "Ферма", "emoji": "🚜",
+        "code": "farm", "name": "Ферма", "emoji": "🚜", "level_required": 0,
         "duration": 150, "salary_min": 220, "salary_max": 320, "xp": 3,
         "label": "фермером",
         "complete_desc": "Ви зібрали врожай та здали його на склад.",
     },
     4: {
-        "code": "loader", "name": "Вантажник", "emoji": "📦",
+        "code": "loader", "name": "Вантажник", "emoji": "📦", "level_required": 0,
         "duration": 90, "salary_min": 130, "salary_max": 200, "xp": 2,
         "label": "вантажником",
         "complete_desc": "Ви розвантажили фуру та отримали оплату.",
     },
     5: {
-        "code": "delivery", "name": "Доставка їжі", "emoji": "🛵",
+        "code": "delivery", "name": "Доставка їжі", "emoji": "🛵", "level_required": 0,
         "duration": 120, "salary_min": 180, "salary_max": 280, "xp": 3,
         "label": "кур'єром",
         "complete_desc": "Ви доставили замовлення клієнту.",
     },
     6: {
-        "code": "cleaner", "name": "Прибиральник", "emoji": "🧹",
+        "code": "cleaner", "name": "Прибиральник", "emoji": "🧹", "level_required": 0,
         "duration": 60, "salary_min": 80, "salary_max": 140, "xp": 1,
         "label": "прибиральником",
         "complete_desc": "Ви прибрали територію та здали зміну.",
     },
     7: {
-        "code": "factory", "name": "Завод", "emoji": "🏭",
+        "code": "factory", "name": "Завод", "emoji": "🏭", "level_required": 1,
         "duration": 180, "salary_min": 350, "salary_max": 500, "xp": 5,
         "label": "робітником заводу",
         "complete_desc": "Ви виготовили партію продукції на заводі.",
     },
     8: {
-        "code": "electrician", "name": "Електрик", "emoji": "⚡",
+        "code": "electrician", "name": "Електрик", "emoji": "⚡", "level_required": 1,
         "duration": 240, "salary_min": 500, "salary_max": 700, "xp": 6,
         "label": "електриком",
         "complete_desc": "Ви усунули несправність проводки.",

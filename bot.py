@@ -229,6 +229,10 @@ async def work_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = db.get_user(user_id)
 
+    if user["level"] < job["level_required"]:
+        await update.message.reply_text(texts.work_level_too_low_text(job, user["level"]))
+        return
+
     if user["working_job"]:
         if user["work_end_ts"]:
             remaining = max(0, int(user["work_end_ts"] - time.time()))
