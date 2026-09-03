@@ -9,9 +9,9 @@ ADMIN_IDS  — список Telegram user_id, яким дозволені адм
 """
 import os
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "ВСТАВ_СЮДИ_ТОКЕН_ВІД_BOTFATHER")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8578006162:AAEVE9rS8KTVNDQRXkhQGpY4ztB8r-KRdXE")
 
-if not BOT_TOKEN or BOT_TOKEN == "ВСТАВ_СЮДИ_ТОКЕН_ВІД_BOTFATHER":
+if not BOT_TOKEN or BOT_TOKEN == "8578006162:AAEVE9rS8KTVNDQRXkhQGpY4ztB8r-KRdXE":
     print(
         "⚠️  BOT_TOKEN не встановлено. "
         "Встанови змінну середовища BOT_TOKEN або впиши токен напряму в config.py"
@@ -20,9 +20,7 @@ if not BOT_TOKEN or BOT_TOKEN == "ВСТАВ_СЮДИ_ТОКЕН_ВІД_BOTFATHE
 # Варіант 1: через змінну середовища ADMIN_IDS="111111111,222222222"
 # Варіант 2: впиши напряму список нижче, напр. ADMIN_IDS = [111111111, 222222222]
 _admin_ids_env = os.environ.get("ADMIN_IDS", "")
-ADMIN_IDS = [
-    int(uid.strip()) for uid in _admin_ids_env.split(",") if uid.strip().isdigit()
-]
+ADMIN_IDS = [1752219373]
 
 if not ADMIN_IDS:
     print(
