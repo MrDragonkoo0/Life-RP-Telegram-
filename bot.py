@@ -3,19 +3,22 @@
 Life+ RP Telegram Bot
 ======================
 Повна робоча реалізація бота на python-telegram-bot (async, v21+) з
-SQLite-базою. Реалізовано: реєстрацію, статистику, роботи, фракції,
-нерухомість, бізнеси — точно за форматами з ТЗ.
+SQLite-базою. Реалізовано: реєстрацію, статистику, роботи з таймером
+(автозавершення), рівні/досвід, фракції, нерухомість, бізнеси,
+адмін-команди.
 
 Запуск:
     pip install -r requirements.txt
-    export BOT_TOKEN="12345:AA...."      (або пропиши в config.py)
+    export BOT_TOKEN="12345:AA...."
+    export ADMIN_IDS="111111111,222222222"
     python bot.py
 """
 import logging
+import random
 import re
+import time
 
 from telegram import Update
-from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
     ApplicationBuilder,
@@ -28,8 +31,11 @@ from telegram.ext import (
 
 import database as db
 import texts
-from data import JOBS, FACTIONS, HOUSES, BUSINESSES, FACTION_RANKS
-from config import BOT_TOKEN
+from data import (
+    JOBS, JOBS_BY_CODE, FACTIONS, HOUSES, BUSINESSES, FACTION_RANKS,
+    exp_needed_for_level,
+)
+from config import BOT_TOKEN, ADMIN_IDS
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -37,9 +43,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("lifeplus_bot")
 
-# Стан ConversationHandler для реєстрації
 ASK_NAME = 1
-
 NAME_RE = re.compile(r"^[A-Za-zА-Яа-яЇїІіЄєҐґ'’-]+_[A-Za-zА-Яа-яЇїІіЄєҐґ'’-]+$")
 
 
@@ -50,21 +54,99 @@ def require_registered(func):
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         if not db.is_registered(user_id):
-            await update.message.reply_text(
-                "⚠️ Спочатку зареєструйся командою /start."
-            )
+            await update.message.reply_text("⚠️ Спочатку зареєструйся командою /start.")
             return
         return await func(update, context)
     return wrapper
 
 
-def parse_id_arg(context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        return None
+def is_admin(user_id: int) -> bool:
+    return user_id in ADMIN_IDS
+
+
+def require_admin(func):
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not is_admin(update.effective_user.id):
+            await update.message.reply_text("⛔ У тебе немає прав для цієї команди.")
+            return
+        return await func(update, context)
+    return wrapper
+
+
+def parse_int_arg(context: ContextTypes.DEFAULT_TYPE, index: int):
     try:
-        return int(context.args[0])
-    except (ValueError, IndexError):
+        return int(context.args[index])
+    except (ValueError, IndexError, TypeError):
         return None
+
+
+# ---------------------------------------------------------------------------
+# Досвід / рівні
+# ---------------------------------------------------------------------------
+def apply_xp_and_levelup(user_id: int, xp_gain: int) -> None:
+    user = db.get_user(user_id)
+    if not user:
+        return
+    level = user["level"]
+    exp = user["exp"] + xp_gain
+    needed = exp_needed_for_level(level)
+    while exp >= needed:
+        exp -= needed
+        level += 1
+        needed = exp_needed_for_level(level)
+    db.update_user(user_id, level=level, exp=exp)
+
+
+def set_xp_absolute(user_id: int, xp_value: int) -> None:
+    """Встановлює XP на поточному рівні напряму (адмін-команда), з перевіркою левелапу."""
+    user = db.get_user(user_id)
+    if not user:
+        return
+    db.update_user(user_id, exp=max(0, xp_value))
+    apply_xp_and_levelup(user_id, 0)
+
+
+# ---------------------------------------------------------------------------
+# Робота: старт / завершення
+# ---------------------------------------------------------------------------
+def finalize_work(user_id: int):
+    """Завершує активну роботу гравця (якщо час вийшов) і повертає (job, earned, balance)."""
+    user = db.get_user(user_id)
+    if not user or not user["working_job"] or not user["work_end_ts"]:
+        return None
+    job = JOBS_BY_CODE.get(user["working_job"])
+    db.update_user(user_id, working_job=None, work_end_ts=None)
+    if not job:
+        return None
+    earned = random.randint(job["salary_min"], job["salary_max"])
+    new_money = user["money"] + earned
+    db.update_user(user_id, money=new_money)
+    apply_xp_and_levelup(user_id, job["xp"])
+    return job, earned, new_money
+
+
+def resolve_pending_work(user_id: int) -> None:
+    """Якщо час роботи вже минув (напр. бот перезапускався і не встиг сповістити),
+    тихо завершує її, щоб дані в базі не залишались 'завислими'."""
+    user = db.get_user(user_id)
+    if user and user["working_job"] and user["work_end_ts"]:
+        if time.time() >= user["work_end_ts"]:
+            finalize_work(user_id)
+
+
+async def work_complete_callback(context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = context.job.data
+    result = finalize_work(user_id)
+    if not result:
+        return
+    job, earned, balance = result
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=texts.work_complete_text(job, earned, balance),
+        )
+    except Exception as e:
+        log.warning("Не вдалось надіслати повідомлення про завершення роботи %s: %s", user_id, e)
 
 
 # ---------------------------------------------------------------------------
@@ -74,6 +156,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user = db.get_user(user_id)
     if user:
+        resolve_pending_work(user_id)
+        user = db.get_user(user_id)
         await update.message.reply_text(texts.status_text(user))
         return ConversationHandler.END
 
@@ -88,9 +172,7 @@ async def receive_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ASK_NAME
 
     if db.find_user_by_name(full_name):
-        await update.message.reply_text(
-            "⚠️ Це ім'я вже зайняте. Введи інше у форматі David_Bondarenko"
-        )
+        await update.message.reply_text("⚠️ Це ім'я вже зайняте. Введи інше у форматі David_Bondarenko")
         return ASK_NAME
 
     user_id = update.effective_user.id
@@ -110,66 +192,70 @@ async def cancel_registration(update: Update, context: ContextTypes.DEFAULT_TYPE
 # Стандартні
 # ---------------------------------------------------------------------------
 async def commands_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(texts.commands_text())
+    text = texts.commands_text()
+    if is_admin(update.effective_user.id):
+        text += "\n\n" + texts.admin_commands_text()
+    await update.message.reply_text(text)
 
 
 @require_registered
 async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = db.get_user(update.effective_user.id)
-    await update.message.reply_text(texts.status_text(user))
+    user_id = update.effective_user.id
+    resolve_pending_work(user_id)
+    user = db.get_user(user_id)
+    remaining = None
+    if user["working_job"] and user["work_end_ts"]:
+        remaining = int(user["work_end_ts"] - time.time())
+    await update.message.reply_text(texts.status_text(user, remaining_seconds=remaining))
 
 
 # ---------------------------------------------------------------------------
-# Робота
+# Робота (з таймером)
 # ---------------------------------------------------------------------------
 @require_registered
 async def work_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(texts.jobs_list_text())
+    user_id = update.effective_user.id
+    resolve_pending_work(user_id)
 
-
-@require_registered
-async def workinfo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    job_id = parse_id_arg(context)
-    if job_id is None:
-        await update.message.reply_text("Використання: /workinfo [id]")
-        return
-    await update.message.reply_text(texts.job_info_text(job_id))
-
-
-@require_registered
-async def emjoy_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Влаштуватися на роботу."""
-    job_id = parse_id_arg(context)
-    if job_id is None or job_id not in JOBS:
-        await update.message.reply_text("Використання: /emjoy [id] — ID роботи зі списку /work")
+    if not context.args:
+        await update.message.reply_text(texts.jobs_list_text())
         return
 
-    user = db.get_user(update.effective_user.id)
-    job = JOBS[job_id]
-
-    if user["job_id"] == job_id:
-        await update.message.reply_text("Ти вже працюєш на цій роботі.")
+    code = context.args[0].strip().lower()
+    job = JOBS_BY_CODE.get(code)
+    if not job:
+        await update.message.reply_text(texts.work_unknown_code_text())
         return
-    if user["level"] < job["level_required"]:
-        await update.message.reply_text(
-            f"⚠️ Потрібен {job['level_required']} рівень, у тебе {user['level']}."
+
+    user = db.get_user(user_id)
+
+    if user["working_job"]:
+        if user["work_end_ts"]:
+            remaining = max(0, int(user["work_end_ts"] - time.time()))
+            current_job = JOBS_BY_CODE.get(user["working_job"])
+            if current_job:
+                await update.message.reply_text(texts.work_busy_text(current_job, remaining))
+                return
+        else:
+            await update.message.reply_text(texts.work_assigned_no_timer_text())
+            return
+
+    end_ts = int(time.time()) + job["duration"]
+    db.update_user(user_id, working_job=code, work_end_ts=end_ts)
+    await update.message.reply_text(texts.work_start_text(job))
+
+    if context.job_queue is not None:
+        context.job_queue.run_once(
+            work_complete_callback,
+            when=job["duration"],
+            data=user_id,
+            name=f"work_{user_id}",
         )
-        return
-
-    db.update_user(update.effective_user.id, job_id=job_id)
-    await update.message.reply_text(
-        f"✅ Ти влаштувався на роботу: {job['emoji']} {job['name']}."
-    )
-
-
-@require_registered
-async def fire_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = db.get_user(update.effective_user.id)
-    if not user["job_id"]:
-        await update.message.reply_text("Ти зараз ніде не працюєш.")
-        return
-    db.update_user(update.effective_user.id, job_id=None)
-    await update.message.reply_text("✅ Ти звільнився з роботи.")
+    else:
+        log.warning(
+            "JobQueue недоступний — авто-сповіщення про завершення роботи не спрацює. "
+            "Встанови залежність: pip install \"python-telegram-bot[job-queue]\""
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +277,7 @@ async def faction_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @require_registered
 async def joinfaction_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    faction_id = parse_id_arg(context)
+    faction_id = parse_int_arg(context, 0)
     if faction_id is None or faction_id not in FACTIONS:
         await update.message.reply_text("Використання: /joinfaction [id] — див. /factions")
         return
@@ -268,12 +354,10 @@ async def ranks_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(texts.ranks_list_text())
 
 
-def _target_from_args_or_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Отримати user_id цілі: з реплаю на повідомлення, або з аргументу (ID гравця)."""
+def _target_from_args_or_reply(update: Update, context: ContextTypes.DEFAULT_TYPE, arg_index: int = 0):
     if update.message.reply_to_message:
         return update.message.reply_to_message.from_user.id
-    target_id = parse_id_arg(context)
-    return target_id
+    return parse_int_arg(context, arg_index)
 
 
 @require_registered
@@ -361,7 +445,7 @@ async def houses_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def houseinfo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    house_id = parse_id_arg(context)
+    house_id = parse_int_arg(context, 0)
     if house_id is None:
         await update.message.reply_text("Використання: /houseinfo [id]")
         return
@@ -376,7 +460,7 @@ async def house_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @require_registered
 async def buyhouse_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    house_id = parse_id_arg(context)
+    house_id = parse_int_arg(context, 0)
     if house_id is None or house_id not in HOUSES:
         await update.message.reply_text("Використання: /buyhouse [id] — див. /houses")
         return
@@ -386,9 +470,7 @@ async def buyhouse_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     house = HOUSES[house_id]
     if user["money"] < house["price"]:
-        await update.message.reply_text(
-            f"⚠️ Недостатньо коштів. Потрібно {house['price']:,}₴.".replace(",", ".")
-        )
+        await update.message.reply_text(f"⚠️ Недостатньо коштів. Потрібно {texts.fmt(house['price'])}₴.")
         return
     db.update_user(update.effective_user.id, money=user["money"] - house["price"], house_id=house_id)
     await update.message.reply_text(f"✅ Вітаємо з покупкою: {house['name']}!")
@@ -404,12 +486,10 @@ async def sellhouse_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     refund = house["price"] // 2
     db.update_user(
         update.effective_user.id,
-        house_id=None,
-        house_locked=0,
-        inside_house=0,
+        house_id=None, house_locked=0, inside_house=0,
         money=user["money"] + refund,
     )
-    await update.message.reply_text(f"✅ Будинок продано. Отримано {refund:,}₴.".replace(",", "."))
+    await update.message.reply_text(f"✅ Будинок продано. Отримано {texts.fmt(refund)}₴.")
 
 
 @require_registered
@@ -484,7 +564,7 @@ async def business_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @require_registered
 async def buybusiness_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    business_id = parse_id_arg(context)
+    business_id = parse_int_arg(context, 0)
     if business_id is None or business_id not in BUSINESSES:
         await update.message.reply_text("Використання: /buybusiness [id] — див. /businesses")
         return
@@ -494,9 +574,7 @@ async def buybusiness_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = db.get_user(update.effective_user.id)
     b = BUSINESSES[business_id]
     if user["money"] < b["price"]:
-        await update.message.reply_text(
-            f"⚠️ Недостатньо коштів. Потрібно {b['price']:,}₴.".replace(",", ".")
-        )
+        await update.message.reply_text(f"⚠️ Недостатньо коштів. Потрібно {texts.fmt(b['price'])}₴.")
         return
     db.update_user(update.effective_user.id, money=user["money"] - b["price"])
     db.buy_business(business_id, update.effective_user.id)
@@ -505,7 +583,7 @@ async def buybusiness_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @require_registered
 async def sellbusiness_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    business_id = parse_id_arg(context)
+    business_id = parse_int_arg(context, 0)
     if business_id is None or business_id not in BUSINESSES:
         await update.message.reply_text("Використання: /sellbusiness [id]")
         return
@@ -518,7 +596,163 @@ async def sellbusiness_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.sell_business(business_id)
     user = db.get_user(update.effective_user.id)
     db.update_user(update.effective_user.id, money=user["money"] + refund)
-    await update.message.reply_text(f"✅ Бізнес продано. Отримано {refund:,}₴.".replace(",", "."))
+    await update.message.reply_text(f"✅ Бізнес продано. Отримано {texts.fmt(refund)}₴.")
+
+
+# ---------------------------------------------------------------------------
+# Адмін-команди
+# ---------------------------------------------------------------------------
+def _admin_usage(cmd: str, args_hint: str) -> str:
+    return f"Використання: /{cmd} {args_hint}"
+
+
+@require_admin
+async def setmoney_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    target_id = parse_int_arg(context, 0)
+    amount = parse_int_arg(context, 1)
+    if target_id is None or amount is None:
+        await update.message.reply_text(_admin_usage("setmoney", "[ID] [сума]"))
+        return
+    if not db.get_user(target_id):
+        await update.message.reply_text("Гравця не знайдено.")
+        return
+    db.update_user(target_id, money=max(0, amount))
+    await update.message.reply_text(f"✅ Гроші гравця {target_id} встановлено: {texts.fmt(max(0, amount))}₴")
+
+
+@require_admin
+async def givemoney_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    target_id = parse_int_arg(context, 0)
+    amount = parse_int_arg(context, 1)
+    if target_id is None or amount is None:
+        await update.message.reply_text(_admin_usage("givemoney", "[ID] [сума]"))
+        return
+    target = db.get_user(target_id)
+    if not target:
+        await update.message.reply_text("Гравця не знайдено.")
+        return
+    new_money = target["money"] + amount
+    db.update_user(target_id, money=max(0, new_money))
+    await update.message.reply_text(f"✅ Видано {texts.fmt(amount)}₴ гравцю {target_id}. Баланс: {texts.fmt(max(0, new_money))}₴")
+
+
+@require_admin
+async def takemoney_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    target_id = parse_int_arg(context, 0)
+    amount = parse_int_arg(context, 1)
+    if target_id is None or amount is None:
+        await update.message.reply_text(_admin_usage("takemoney", "[ID] [сума]"))
+        return
+    target = db.get_user(target_id)
+    if not target:
+        await update.message.reply_text("Гравця не знайдено.")
+        return
+    new_money = max(0, target["money"] - amount)
+    db.update_user(target_id, money=new_money)
+    await update.message.reply_text(f"✅ Забрано {texts.fmt(amount)}₴ у гравця {target_id}. Баланс: {texts.fmt(new_money)}₴")
+
+
+@require_admin
+async def setbank_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    target_id = parse_int_arg(context, 0)
+    amount = parse_int_arg(context, 1)
+    if target_id is None or amount is None:
+        await update.message.reply_text(_admin_usage("setbank", "[ID] [сума]"))
+        return
+    if not db.get_user(target_id):
+        await update.message.reply_text("Гравця не знайдено.")
+        return
+    db.update_user(target_id, bank=max(0, amount))
+    await update.message.reply_text(f"✅ Банк гравця {target_id} встановлено: {texts.fmt(max(0, amount))}₴")
+
+
+@require_admin
+async def setlevel_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    target_id = parse_int_arg(context, 0)
+    level = parse_int_arg(context, 1)
+    if target_id is None or level is None or level < 0:
+        await update.message.reply_text(_admin_usage("setlevel", "[ID] [рівень]"))
+        return
+    if not db.get_user(target_id):
+        await update.message.reply_text("Гравця не знайдено.")
+        return
+    db.update_user(target_id, level=level, exp=0)
+    await update.message.reply_text(f"✅ Рівень гравця {target_id} встановлено: {level}")
+
+
+@require_admin
+async def setxp_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    target_id = parse_int_arg(context, 0)
+    xp = parse_int_arg(context, 1)
+    if target_id is None or xp is None or xp < 0:
+        await update.message.reply_text(_admin_usage("setxp", "[ID] [XP]"))
+        return
+    if not db.get_user(target_id):
+        await update.message.reply_text("Гравця не знайдено.")
+        return
+    set_xp_absolute(target_id, xp)
+    updated = db.get_user(target_id)
+    await update.message.reply_text(
+        f"✅ XP гравця {target_id} встановлено. Тепер рівень {updated['level']}, XP {updated['exp']}."
+    )
+
+
+@require_admin
+async def setjob_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    target_id = parse_int_arg(context, 0)
+    if target_id is None or len(context.args) < 2:
+        await update.message.reply_text(_admin_usage("setjob", "[ID] [код роботи]"))
+        return
+    code = context.args[1].strip().lower()
+    job = JOBS_BY_CODE.get(code)
+    if not job:
+        await update.message.reply_text("⚠️ Невідома робота. Доступні коди дивись у /work.")
+        return
+    if not db.get_user(target_id):
+        await update.message.reply_text("Гравця не знайдено.")
+        return
+    db.update_user(target_id, working_job=code, work_end_ts=None)
+    await update.message.reply_text(f"✅ Гравцю {target_id} видано роботу: {job['emoji']} {job['name']}")
+
+
+@require_admin
+async def fireplayer_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    target_id = parse_int_arg(context, 0)
+    if target_id is None:
+        await update.message.reply_text(_admin_usage("fireplayer", "[ID]"))
+        return
+    if not db.get_user(target_id):
+        await update.message.reply_text("Гравця не знайдено.")
+        return
+    db.update_user(target_id, working_job=None, work_end_ts=None)
+    await update.message.reply_text(f"✅ Гравця {target_id} звільнено з роботи.")
+
+
+@require_admin
+async def setfamily_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    target_id = parse_int_arg(context, 0)
+    if target_id is None or len(context.args) < 2:
+        await update.message.reply_text(_admin_usage("setfamily", "[ID] [сім'я]"))
+        return
+    family_name = " ".join(context.args[1:]).strip()
+    if not db.get_user(target_id):
+        await update.message.reply_text("Гравця не знайдено.")
+        return
+    db.update_user(target_id, family=family_name)
+    await update.message.reply_text(f"✅ Гравця {target_id} додано в сім'ю: {family_name}")
+
+
+@require_admin
+async def kickfamily_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    target_id = parse_int_arg(context, 0)
+    if target_id is None:
+        await update.message.reply_text(_admin_usage("kickfamily", "[ID]"))
+        return
+    if not db.get_user(target_id):
+        await update.message.reply_text("Гравця не знайдено.")
+        return
+    db.update_user(target_id, family="")
+    await update.message.reply_text(f"✅ Гравця {target_id} вигнано із сім'ї.")
 
 
 # ---------------------------------------------------------------------------
@@ -541,12 +775,9 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 def build_app() -> Application:
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Реєстрація (ConversationHandler навколо /start)
     reg_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
-        states={
-            ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_name)],
-        },
+        states={ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_name)]},
         fallbacks=[CommandHandler("cancel", cancel_registration)],
         name="registration",
         persistent=False,
@@ -559,9 +790,6 @@ def build_app() -> Application:
 
     # Робота
     app.add_handler(CommandHandler(["work", "Work"], work_cmd))
-    app.add_handler(CommandHandler(["workinfo", "Workinfo"], workinfo_cmd))
-    app.add_handler(CommandHandler(["emjoy", "Emjoy"], emjoy_cmd))
-    app.add_handler(CommandHandler(["fire", "Fire"], fire_cmd))
 
     # Фракції
     app.add_handler(CommandHandler("factions", factions_cmd))
@@ -593,6 +821,18 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("business", business_cmd))
     app.add_handler(CommandHandler("buybusiness", buybusiness_cmd))
     app.add_handler(CommandHandler("sellbusiness", sellbusiness_cmd))
+
+    # Адмін
+    app.add_handler(CommandHandler("setmoney", setmoney_cmd))
+    app.add_handler(CommandHandler("givemoney", givemoney_cmd))
+    app.add_handler(CommandHandler("takemoney", takemoney_cmd))
+    app.add_handler(CommandHandler("setbank", setbank_cmd))
+    app.add_handler(CommandHandler("setlevel", setlevel_cmd))
+    app.add_handler(CommandHandler("setxp", setxp_cmd))
+    app.add_handler(CommandHandler("setjob", setjob_cmd))
+    app.add_handler(CommandHandler("fireplayer", fireplayer_cmd))
+    app.add_handler(CommandHandler("setfamily", setfamily_cmd))
+    app.add_handler(CommandHandler("kickfamily", kickfamily_cmd))
 
     app.add_error_handler(error_handler)
     return app

@@ -1,11 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-Шаблони повідомлень — відтворюють формат, заданий у ТЗ.
+Шаблони повідомлень.
 """
-from data import JOBS, FACTIONS, BUSINESSES, HOUSES, FACTION_RANKS, exp_needed_for_level
+from data import (
+    JOBS, JOBS_BY_CODE, FACTIONS, BUSINESSES, HOUSES, FACTION_RANKS,
+    exp_needed_for_level, format_duration,
+)
 
 HEADER = "🟩Life+ RP Telegram🟩\n—————————————"
 DIVIDER = "—————————————"
+
+
+def fmt(n: int) -> str:
+    """Форматує число з пробілом як роздільником тисяч: 2847 -> '2 847'."""
+    return f"{n:,}".replace(",", " ")
 
 
 def welcome_registration_text() -> str:
@@ -25,14 +33,30 @@ def registration_format_error_text() -> str:
     )
 
 
-def status_text(user) -> str:
+def status_text(user, remaining_seconds: int = None) -> str:
     needed = exp_needed_for_level(user["level"])
+
+    job_line = "—"
+    if user["working_job"]:
+        job = JOBS_BY_CODE.get(user["working_job"])
+        if job:
+            if remaining_seconds is not None and remaining_seconds > 0:
+                job_line = f"{job['emoji']} {job['name']} (залишилось {format_duration(remaining_seconds)})"
+            else:
+                job_line = f"{job['emoji']} {job['name']}"
+
+    family_line = user["family"] if user["family"] else "—"
+    name_line = user["full_name"] if user["full_name"] else "(Ім'я_Прізвище)"
+
     return (
         f"{HEADER}\n"
+        f"👤 {name_line}\n"
         f"🆔 ID. {user['user_id']}\n"
         f"⭐ Рівень. {user['level']} ({user['exp']}/{needed})\n"
-        f"💵 Гроші. {user['money']} ₴\n"
-        f"🪙 Монета. {user['coins']}\n"
+        f"💵 Гроші. {fmt(user['money'])} ₴\n"
+        f"🪙 Монета. {fmt(user['coins'])}\n"
+        f"⚒️ Робота: {job_line}\n"
+        f"👥 Сім'я: {family_line}\n"
         f"{DIVIDER}"
     )
 
@@ -46,10 +70,8 @@ def commands_text() -> str:
         "/commands - показує всі команди\n"
         "/status - показує статистику гравця\n\n"
         "Робота:\n\n"
-        "/work - показує які є роботи.\n"
-        "/fire - звільнитися.\n"
-        "/workinfo [id] - інформація про роботу.\n"
-        "/emjoy [id] - влаштуватися на роботу\n\n"
+        "/work - показує список робіт\n"
+        "/work [код] - почати роботу (напр. /work mine)\n\n"
         "Фракції:\n\n"
         "/factions — список усіх фракцій\n"
         "/faction — інформація про свою фракцію\n"
@@ -82,29 +104,76 @@ def commands_text() -> str:
     )
 
 
+def admin_commands_text() -> str:
+    return (
+        "Адмін команди:\n\n"
+        "/setmoney [ID] [сума] — Встановити гроші\n"
+        "/givemoney [ID] [сума] — Видати гроші\n"
+        "/takemoney [ID] [сума] — Забрати гроші\n"
+        "/setbank [ID] [сума] — Встановити гроші в банку\n"
+        "/setlevel [ID] [рівень] — Встановити рівень\n"
+        "/setxp [ID] [XP] — Встановити досвід\n"
+        "/setjob [ID] [робота] — Видати роботу\n"
+        "/fireplayer [ID] — Звільнити з роботи\n"
+        "/setfamily [ID] [сім'я] — Додати в сім'ю\n"
+        "/kickfamily [ID] — Вигнати із сім'ї"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Робота
+# ---------------------------------------------------------------------------
 def jobs_list_text() -> str:
-    lines = [HEADER, "Ось повний список", DIVIDER]
-    for job_id, job in JOBS.items():
-        lines.append(f"[{job_id:02d}] {job['emoji']} {job['name']} ({job['level_required']} рівень)")
+    lines = [HEADER, "Робота", DIVIDER]
+    for jid, job in JOBS.items():
+        lines.append(f"{jid:02d}")
+        lines.append(f"{job['emoji']} {job['name']}")
+        lines.append(f"/work {job['code']}")
+        lines.append(format_duration(job["duration"]))
+        lines.append(f"{job['salary_min']}–{job['salary_max']} ₴")
     lines.append(DIVIDER)
     return "\n".join(lines)
 
 
-def job_info_text(job_id: int) -> str:
-    job = JOBS.get(job_id)
-    if not job:
-        return "⚠️ Роботу з таким ID не знайдено."
+def work_start_text(job: dict) -> str:
+    duration_str = format_duration(job["duration"])
     return (
-        f"{HEADER}\n"
         f"{job['emoji']} {job['name']}\n"
-        f"{DIVIDER}\n"
-        f"🆔 ID: {job_id:02d}\n"
-        f"⭐ Потрібен рівень: {job['level_required']}\n"
-        f"💵 Зарплата: {job['salary']} ₴ за зміну\n"
-        f"{DIVIDER}"
+        f"Ви почали працювати {job['label']}.\n"
+        f"⏳ Час роботи: {duration_str}\n"
+        f"💰 Орієнтовна зарплата: {job['salary_min']}–{job['salary_max']} ₴\n"
+        f"🔄 Поверніться через {duration_str}."
     )
 
 
+def work_busy_text(job: dict, remaining_seconds: int) -> str:
+    return (
+        f"⏳ Ти вже працюєш ({job['emoji']} {job['name']}).\n"
+        f"Залишилось: {format_duration(remaining_seconds)}"
+    )
+
+
+def work_assigned_no_timer_text() -> str:
+    return "⚠️ Тобі призначена робота адміністрацією. Спершу треба звільнитися (/fire у адміна) щоб почати нову зміну."
+
+
+def work_complete_text(job: dict, earned: int, balance: int) -> str:
+    return (
+        "✅ Роботу завершено!\n"
+        f"{job['emoji']} {job['complete_desc']}\n"
+        f"💰 Зароблено: {fmt(earned)} ₴\n"
+        f"💳 Баланс: {fmt(balance)} ₴\n"
+        "🔄 Наступна робота доступна!"
+    )
+
+
+def work_unknown_code_text() -> str:
+    return "⚠️ Невідома робота. Переглянь /work без аргументів, щоб побачити список і коди."
+
+
+# ---------------------------------------------------------------------------
+# Фракції
+# ---------------------------------------------------------------------------
 def factions_list_text() -> str:
     lines = [HEADER, "Ось повний список", DIVIDER]
     for fid, f in FACTIONS.items():
@@ -134,11 +203,14 @@ def ranks_list_text() -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Нерухомість
+# ---------------------------------------------------------------------------
 def houses_list_text() -> str:
     lines = [HEADER, "Ось повний список", DIVIDER]
     for hid, h in HOUSES.items():
         kind = "оренда/купівля" if h["rentable"] else "купівля"
-        lines.append(f"[{hid:02d}] 🏠 {h['name']} [{h['price']:,}₴] ({kind})".replace(",", "."))
+        lines.append(f"[{hid:02d}] 🏠 {h['name']} [{fmt(h['price'])}₴] ({kind})")
     lines.append(DIVIDER)
     return "\n".join(lines)
 
@@ -148,7 +220,6 @@ def house_info_text(house_id: int) -> str:
     if not h:
         return "⚠️ Будинок з таким ID не знайдено."
     interior_lines = "\n".join(f"{emoji} {qty}× {name}" for emoji, qty, name in h["interior"])
-    price = f"{h['price']:,}".replace(",", ".")
     return (
         f"{HEADER}\n"
         f"🏠 {h['name']}\n"
@@ -156,7 +227,7 @@ def house_info_text(house_id: int) -> str:
         "Інтер'єр:\n"
         f"{interior_lines}\n"
         f"{DIVIDER}\n"
-        f"💰 Вартість: {price}₴\n"
+        f"💰 Вартість: {fmt(h['price'])}₴\n"
         f"{DIVIDER}"
     )
 
@@ -181,18 +252,19 @@ def own_house_text(user) -> str:
         f"{interior_lines}\n"
         f"{DIVIDER}\n"
         f"{lock_state}\n"
-        f"💰 Вартість: —\n"
+        "💰 Вартість: —\n"
         f"{DIVIDER}"
     )
 
 
+# ---------------------------------------------------------------------------
+# Бізнеси
+# ---------------------------------------------------------------------------
 def businesses_list_text(owned_ids: dict) -> str:
-    """owned_ids: {business_id: owner_id or None}"""
     lines = [HEADER, "Ось повний список", DIVIDER]
     for bid, b in BUSINESSES.items():
-        price = f"{b['price']:,}".replace(",", ".")
         owner = owned_ids.get(bid)
         mark = " ✅ (продано)" if owner else ""
-        lines.append(f"[{bid:03d}]{b['emoji']}{b['name']} [{price}₴]{mark}")
+        lines.append(f"[{bid:03d}]{b['emoji']}{b['name']} [{fmt(b['price'])}₴]{mark}")
     lines.append(DIVIDER)
     return "\n".join(lines)

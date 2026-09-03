@@ -2,6 +2,9 @@
 """
 Шар роботи з базою даних (SQLite). Простий синхронний доступ під локом —
 достатньо для навантаження одного RP Telegram-бота.
+
+init_db() безпечно оновлює схему навіть якщо база вже існувала зі
+старою структурою (додає відсутні колонки, нічого не видаляючи).
 """
 import sqlite3
 import threading
@@ -36,13 +39,15 @@ def init_db() -> None:
                 exp           INTEGER NOT NULL DEFAULT 0,
                 money         INTEGER NOT NULL DEFAULT 0,
                 coins         INTEGER NOT NULL DEFAULT 0,
-                job_id        INTEGER,
+                bank          INTEGER NOT NULL DEFAULT 0,
+                family        TEXT NOT NULL DEFAULT '',
+                working_job   TEXT,
+                work_end_ts   INTEGER,
                 faction_id    INTEGER,
                 faction_rank  INTEGER NOT NULL DEFAULT 0,
                 house_id      INTEGER,
                 house_locked  INTEGER NOT NULL DEFAULT 0,
                 inside_house  INTEGER NOT NULL DEFAULT 0,
-                business_ids  TEXT NOT NULL DEFAULT '',
                 registered_at TEXT
             )
         """)
@@ -52,6 +57,24 @@ def init_db() -> None:
                 owner_id    INTEGER NOT NULL
             )
         """)
+    _migrate_users_table()
+
+
+def _migrate_users_table() -> None:
+    """Додає відсутні колонки до вже існуючої таблиці users, якщо потрібно."""
+    new_columns = {
+        "bank": "INTEGER NOT NULL DEFAULT 0",
+        "family": "TEXT NOT NULL DEFAULT ''",
+        "working_job": "TEXT",
+        "work_end_ts": "INTEGER",
+    }
+    with db_cursor() as cur:
+        cur.execute("PRAGMA table_info(users)")
+        existing = {row["name"] for row in cur.fetchall()}
+    for col, decl in new_columns.items():
+        if col not in existing:
+            with db_cursor() as cur:
+                cur.execute(f"ALTER TABLE users ADD COLUMN {col} {decl}")
 
 
 # ---------------------------------------------------------------------------
@@ -83,16 +106,6 @@ def update_user(user_id: int, **fields) -> None:
     values = list(fields.values()) + [user_id]
     with db_cursor() as cur:
         cur.execute(f"UPDATE users SET {cols} WHERE user_id = ?", values)
-
-
-def add_money(user_id: int, amount: int) -> None:
-    with db_cursor() as cur:
-        cur.execute("UPDATE users SET money = money + ? WHERE user_id = ?", (amount, user_id))
-
-
-def add_exp(user_id: int, amount: int) -> None:
-    with db_cursor() as cur:
-        cur.execute("UPDATE users SET exp = exp + ? WHERE user_id = ?", (amount, user_id))
 
 
 def find_user_by_name(full_name: str) -> Optional[sqlite3.Row]:
