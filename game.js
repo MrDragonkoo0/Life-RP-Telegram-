@@ -14,10 +14,10 @@ class LifePlusScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.image("male_down", "assets/male_down.png?v=15");
-    this.load.image("male_up", "assets/male_up.png?v=15");
-    this.load.image("male_left", "assets/male_left.png?v=15");
-    this.load.image("male_right", "assets/male_right.png?v=15");
+    this.load.image("male_down", "assets/male_down.png?v=16");
+    this.load.image("male_up", "assets/male_up.png?v=16");
+    this.load.image("male_left", "assets/male_left.png?v=16");
+    this.load.image("male_right", "assets/male_right.png?v=16");
     this.load.image("female", "assets/female.png");
     this.load.image("joystick", "assets/joystick.png");
   }
@@ -180,8 +180,8 @@ class LifePlusScene extends Phaser.Scene {
     }
     this.player.setTexture(textureKey);
 
-    // Усі 4 напрямки тепер мають однаковий кадр 64×112 px,
-    // тому персонаж не змінює розмір під час повороту.
+    // Усі 4 напрямки мають однаковий кадр 64×112 px та однаковий
+    // візуальний габарит персонажа 49×90 px, тому масштаб не стрибає.
     this.player.setDisplaySize(64, 112);
     this.player.body.setSize(24, 38);
     this.player.body.setOffset(20, 68);
