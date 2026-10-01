@@ -14,10 +14,10 @@ class LifePlusScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.image("male_down", "assets/male_down.png?v=14");
-    this.load.image("male_up", "assets/male_up.png?v=14");
-    this.load.image("male_left", "assets/male_left.png?v=14");
-    this.load.image("male_right", "assets/male_right.png?v=14");
+    this.load.image("male_down", "assets/male_down.png?v=15");
+    this.load.image("male_up", "assets/male_up.png?v=15");
+    this.load.image("male_left", "assets/male_left.png?v=15");
+    this.load.image("male_right", "assets/male_right.png?v=15");
     this.load.image("female", "assets/female.png");
     this.load.image("joystick", "assets/joystick.png");
   }
@@ -180,16 +180,11 @@ class LifePlusScene extends Phaser.Scene {
     }
     this.player.setTexture(textureKey);
 
-    // Зберігаємо приблизно однакову висоту персонажа для всіх напрямків.
-    const targetHeight = 108;
-    const source = this.textures.get(textureKey).getSourceImage();
-    const ratio = source.width / source.height;
-    this.player.setDisplaySize(targetHeight * ratio, targetHeight);
+    // Усі 4 напрямки тепер мають однаковий кадр 64×112 px,
+    // тому персонаж не змінює розмір під час повороту.
+    this.player.setDisplaySize(64, 112);
     this.player.body.setSize(24, 38);
-    this.player.body.setOffset(
-      Math.max(0, (this.player.displayWidth - 24) / 2),
-      Math.max(0, this.player.displayHeight - 48)
-    );
+    this.player.body.setOffset(20, 68);
   }
 
   addBuildingColliders() {
