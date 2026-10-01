@@ -10,14 +10,14 @@ class LifePlusScene extends Phaser.Scene {
     this.joystickPointer = null;
     this.runHeld = false;
     this.nearStation = false;
-    this.playerDirection = "down";
+    this.playerDirection = "";
   }
 
   preload() {
-    this.load.image("male_down", "assets/male_down.png");
-    this.load.image("male_up", "assets/male_up.png");
-    this.load.image("male_left", "assets/male_left.png");
-    this.load.image("male_right", "assets/male_right.png");
+    this.load.image("male_down", "assets/male_down.png?v=14");
+    this.load.image("male_up", "assets/male_up.png?v=14");
+    this.load.image("male_left", "assets/male_left.png?v=14");
+    this.load.image("male_right", "assets/male_right.png?v=14");
     this.load.image("female", "assets/female.png");
     this.load.image("joystick", "assets/joystick.png");
   }
@@ -172,7 +172,12 @@ class LifePlusScene extends Phaser.Scene {
       right: "male_right"
     }[direction] || "male_down";
 
+    if (this.playerDirection === direction && this.player.texture && this.player.texture.key === textureKey) return;
     this.playerDirection = direction;
+    if (!this.textures.exists(textureKey)) {
+      console.error("Life+ RP: texture not loaded:", textureKey);
+      return;
+    }
     this.player.setTexture(textureKey);
 
     // Зберігаємо приблизно однакову висоту персонажа для всіх напрямків.
