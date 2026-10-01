@@ -272,7 +272,63 @@ const config = {
   pixelArt: true,
   roundPixels: true,
   physics: { default: "arcade", arcade: { debug: false } },
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+  scale: { mode: Phaser.Scale.ENVELOP, autoCenter: Phaser.Scale.CENTER_BOTH },
   scene: [LifePlusScene]
 };
 new Phaser.Game(config);
+
+
+// Повноекранний режим та спроба автоматично зафіксувати альбомну орієнтацію.
+(() => {
+  const fullscreenButtons = [
+    document.getElementById("fullscreen-btn"),
+    document.getElementById("rotate-fullscreen-btn")
+  ].filter(Boolean);
+  const root = document.getElementById("game-root");
+  const mainButton = document.getElementById("fullscreen-btn");
+
+  function isFullscreen() {
+    return Boolean(document.fullscreenElement || document.webkitFullscreenElement ||
+      (window.Telegram && Telegram.WebApp && Telegram.WebApp.isFullscreen));
+  }
+
+  function updateFullscreenButton() {
+    if (mainButton) mainButton.hidden = isFullscreen();
+  }
+
+  async function enterGameMode() {
+    // Telegram Mini App: розгорнути WebView, якщо API доступний.
+    try {
+      const tg = window.Telegram && window.Telegram.WebApp;
+      if (tg) {
+        tg.ready();
+        tg.expand();
+        if (typeof tg.requestFullscreen === "function") tg.requestFullscreen();
+      }
+    } catch (_) {}
+
+    // Звичайний браузер: fullscreen запитується лише після натискання користувача.
+    try {
+      if (!document.fullscreenElement && root && root.requestFullscreen) {
+        await root.requestFullscreen();
+      } else if (!document.fullscreenElement && root && root.webkitRequestFullscreen) {
+        root.webkitRequestFullscreen();
+      }
+    } catch (_) {}
+
+    // Браузер може відмовити в блокуванні орієнтації — тоді лишається підказка повернути телефон.
+    try {
+      if (screen.orientation && typeof screen.orientation.lock === "function") {
+        await screen.orientation.lock("landscape");
+      }
+    } catch (_) {}
+    updateFullscreenButton();
+  }
+
+  fullscreenButtons.forEach(button => button.addEventListener("click", enterGameMode));
+  document.addEventListener("fullscreenchange", updateFullscreenButton);
+  document.addEventListener("webkitfullscreenchange", updateFullscreenButton);
+  window.addEventListener("orientationchange", () => setTimeout(updateFullscreenButton, 250));
+  window.addEventListener("resize", updateFullscreenButton);
+  updateFullscreenButton();
+})();
