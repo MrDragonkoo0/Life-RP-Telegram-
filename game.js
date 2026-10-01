@@ -14,7 +14,6 @@ class LifePlusScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.image("male", "assets/male.png");
     this.load.image("male_down", "assets/male_down.png");
     this.load.image("male_up", "assets/male_up.png");
     this.load.image("male_left", "assets/male_left.png");
@@ -147,7 +146,7 @@ class LifePlusScene extends Phaser.Scene {
 
   createPlayer() {
     const saved = localStorage.getItem("lifeplus_gender") || "male";
-    const key = saved === "female" ? "female" : "male";
+    const key = saved === "female" ? "female" : "male_down";
     this.player = this.physics.add.sprite(200, 600, key);
     this.player.setDepth(10);
     this.player.setScale(1.35);
@@ -156,7 +155,7 @@ class LifePlusScene extends Phaser.Scene {
     this.player.body.setOffset(10, 36);
 
     // Чотири напрямки нового чоловічого персонажа.
-    if (key === "male") {
+    if (saved !== "female") {
       this.setMaleDirection("down");
     }
     this.player.setDrag(900, 900);
