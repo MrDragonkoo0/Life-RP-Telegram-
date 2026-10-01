@@ -10,10 +10,15 @@ class LifePlusScene extends Phaser.Scene {
     this.joystickPointer = null;
     this.runHeld = false;
     this.nearStation = false;
+    this.playerDirection = "down";
   }
 
   preload() {
     this.load.image("male", "assets/male.png");
+    this.load.image("male_down", "assets/male_down.png");
+    this.load.image("male_up", "assets/male_up.png");
+    this.load.image("male_left", "assets/male_left.png");
+    this.load.image("male_right", "assets/male_right.png");
     this.load.image("female", "assets/female.png");
     this.load.image("joystick", "assets/joystick.png");
   }
@@ -149,9 +154,38 @@ class LifePlusScene extends Phaser.Scene {
     this.player.setCollideWorldBounds(true);
     this.player.body.setSize(24, 38);
     this.player.body.setOffset(10, 36);
+
+    // Чотири напрямки нового чоловічого персонажа.
+    if (key === "male") {
+      this.setMaleDirection("down");
+    }
     this.player.setDrag(900, 900);
     this.player.setMaxVelocity(230, 230);
     this.player.setDepth(this.player.y);
+  }
+
+  setMaleDirection(direction) {
+    if (!this.player || localStorage.getItem("lifeplus_gender") === "female") return;
+    const textureKey = {
+      down: "male_down",
+      up: "male_up",
+      left: "male_left",
+      right: "male_right"
+    }[direction] || "male_down";
+
+    this.playerDirection = direction;
+    this.player.setTexture(textureKey);
+
+    // Зберігаємо приблизно однакову висоту персонажа для всіх напрямків.
+    const targetHeight = 108;
+    const source = this.textures.get(textureKey).getSourceImage();
+    const ratio = source.width / source.height;
+    this.player.setDisplaySize(targetHeight * ratio, targetHeight);
+    this.player.body.setSize(24, 38);
+    this.player.body.setOffset(
+      Math.max(0, (this.player.displayWidth - 24) / 2),
+      Math.max(0, this.player.displayHeight - 48)
+    );
   }
 
   addBuildingColliders() {
@@ -254,8 +288,15 @@ class LifePlusScene extends Phaser.Scene {
     const running = this.runHeld || this.keys.SHIFT.isDown;
     const speed = running ? 315 : 190;
     this.player.setVelocity(dx * speed, dy * speed);
-    if (dx < -0.1) this.player.setFlipX(true);
-    else if (dx > 0.1) this.player.setFlipX(false);
+
+    // Для чоловічого персонажа використовуємо 4 надані сторони.
+    if (localStorage.getItem("lifeplus_gender") !== "female" && (Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1)) {
+      if (Math.abs(dx) > Math.abs(dy)) {
+        this.setMaleDirection(dx < 0 ? "left" : "right");
+      } else {
+        this.setMaleDirection(dy < 0 ? "up" : "down");
+      }
+    }
 
     this.nearStation = Phaser.Math.Distance.Between(this.player.x, this.player.y, 200, 520) < 115;
     if (this.nearStation) this.updateHint("Вокзал поруч · натисни «ВЗАЄМОДІЯ»");
