@@ -230,7 +230,7 @@ class LifePlusScene extends Phaser.Scene {
       fontFamily: "Arial", fontSize: "17px", fontStyle: "bold", color: "#ffffff"
     });
     this.settingsButton = this.add.image(GAME_W - 38, 42, "settings_icon")
-      .setDisplaySize(42, 43).setInteractive({ useHandCursor: false });
+      .setDisplaySize(52, 53).setInteractive({ useHandCursor: false });
     this.settingsButton.on("pointerdown", () => this.updateHint("Налаштування будуть доступні у наступному етапі."));
     this.hud.add([panel, nick, level, this.moneyIcon, this.moneyText, this.settingsButton]);
   }
@@ -285,7 +285,7 @@ class LifePlusScene extends Phaser.Scene {
     const s = Math.min(scaleX, scaleY);
     this.joy.setPosition(112, GAME_H - 112).setScale(0.86);
     this.runButton.setPosition(GAME_W - 105, GAME_H - 105).setDisplaySize(82, 84);
-    if (this.settingsButton) this.settingsButton.setPosition(GAME_W - 38, 42);
+    if (this.settingsButton) this.settingsButton.setPosition(GAME_W - 38, 42).setDisplaySize(52, 53);
   }
 
   readJoystick(pointer) {
