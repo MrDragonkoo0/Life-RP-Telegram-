@@ -63,3 +63,5 @@ canvas { display: block; width: 100% !important; height: 100% !important; image-
 #auth-error { min-height: 20px; color: #ff8d8d; font-size: 13px; text-align: center; }
 .auth-card small { display: block; margin-top: 14px; color: #8193a0; }
 .auth-screen[hidden] { display: none; }
+
+#hint:empty { display: none; }

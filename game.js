@@ -44,7 +44,7 @@ class LifePlusScene extends Phaser.Scene {
     this.buildingColliders = this.physics.add.staticGroup();
     this.addBuildingColliders();
     this.physics.add.collider(this.player, this.buildingColliders);
-    this.updateHint(`Привіт, ${this.profile?.nickname || "гравцю"}! Ти біля вокзалу.`);
+    this.updateHint("");
     this.syncProfileToServer(true);
     this.scale.on("resize", () => this.layoutControls());
   }
@@ -217,19 +217,19 @@ class LifePlusScene extends Phaser.Scene {
   createHud() {
     this.hud = this.add.container(0, 0).setScrollFactor(0).setDepth(150);
 
-    const panel = this.add.rectangle(18, 18, 360, 72, 0x101820, 0.88)
+    const panel = this.add.rectangle(18, 92, 360, 72, 0x101820, 0.88)
       .setOrigin(0).setStrokeStyle(2, 0x33495a, 0.9);
-    const nick = this.add.text(34, 27, this.profile?.nickname || "Гравець", {
+    const nick = this.add.text(34, 101, this.profile?.nickname || "Гравець", {
       fontFamily: "Arial", fontSize: "20px", fontStyle: "bold", color: "#ffffff"
     });
-    const level = this.add.text(34, 54, `⭐ Lv.${Number(this.profile?.level || 1)}  XP ${Number(this.profile?.xp || 0)}/100`, {
+    const level = this.add.text(34, 128, `⭐ Lv.${Number(this.profile?.level || 1)}  XP ${Number(this.profile?.xp || 0)}/100`, {
       fontFamily: "Arial", fontSize: "13px", color: "#dbe7f0"
     });
-    this.moneyIcon = this.add.image(185, 42, "money_icon").setDisplaySize(34, 29);
-    this.moneyText = this.add.text(207, 33, `₴ ${Number(this.profile?.cash || 0).toLocaleString("uk-UA")}`, {
+    this.moneyIcon = this.add.image(185, 116, "money_icon").setDisplaySize(34, 29);
+    this.moneyText = this.add.text(207, 107, `₴ ${Number(this.profile?.cash || 0).toLocaleString("uk-UA")}`, {
       fontFamily: "Arial", fontSize: "17px", fontStyle: "bold", color: "#ffffff"
     });
-    this.settingsButton = this.add.image(GAME_W - 38, 42, "settings_icon")
+    this.settingsButton = this.add.image(GAME_W - 38, 100, "settings_icon")
       .setDisplaySize(52, 53).setInteractive({ useHandCursor: false });
     this.settingsButton.on("pointerdown", () => this.updateHint("Налаштування будуть доступні у наступному етапі."));
     this.hud.add([panel, nick, level, this.moneyIcon, this.moneyText, this.settingsButton]);
@@ -285,7 +285,7 @@ class LifePlusScene extends Phaser.Scene {
     const s = Math.min(scaleX, scaleY);
     this.joy.setPosition(112, GAME_H - 112).setScale(0.86);
     this.runButton.setPosition(GAME_W - 105, GAME_H - 105).setDisplaySize(82, 84);
-    if (this.settingsButton) this.settingsButton.setPosition(GAME_W - 38, 42).setDisplaySize(52, 53);
+    if (this.settingsButton) this.settingsButton.setPosition(GAME_W - 38, 100).setDisplaySize(52, 53);
   }
 
   readJoystick(pointer) {
@@ -302,7 +302,7 @@ class LifePlusScene extends Phaser.Scene {
   updateProfileHint() {
     const p = this.profile || LifePlusAuth.getProfile();
     const el = document.getElementById("hint");
-    if (el && p) el.textContent = `👤 ${p.nickname}`;
+    if (el) el.textContent = "";
     if (this.moneyText && p) this.moneyText.setText(`₴ ${Number(p.cash || 0).toLocaleString("uk-UA")}`);
   }
 
