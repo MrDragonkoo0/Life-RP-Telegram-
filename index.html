@@ -4,13 +4,29 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <meta name="theme-color" content="#101820">
-  <title>Life+ RP v0.1.4 — повноекранний режим</title>
+  <title>Life+ RP v0.2.0 — повноекранний режим</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <script src="auth.js"></script>
 </head>
 <body>
   <main id="game-root">
+    <section id="auth-screen" class="auth-screen" aria-label="Реєстрація Life+ RP">
+      <div class="auth-card">
+        <div class="auth-logo">Life+ <span>RP</span></div>
+        <p id="auth-subtitle">Створи свій профіль</p>
+        <form id="auth-form">
+          <label id="nickname-label">Нікнейм<input id="nickname" maxlength="20" autocomplete="nickname" placeholder="Наприклад, Dragon" /></label>
+          <label>Пароль<input id="password" type="password" minlength="6" autocomplete="new-password" placeholder="Мінімум 6 символів" /></label>
+          <label id="password2-label">Повторіть пароль<input id="password2" type="password" minlength="6" autocomplete="new-password" placeholder="Повторіть пароль" /></label>
+          <button id="auth-submit" type="submit">Зареєструватися</button>
+          <button id="auth-switch" type="button" class="auth-secondary" hidden>Увійти в існуючий профіль</button>
+          <div id="auth-error" role="alert"></div>
+        </form>
+        <small>Стартовий баланс після реєстрації: ₴1 000</small>
+      </div>
+    </section>
     <div id="game"></div>
     <div id="hint">Досліджуй місто</div>
     <button id="fullscreen-btn" type="button" aria-label="Увімкнути повноекранний режим">⛶ На весь екран</button>

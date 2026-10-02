@@ -9,20 +9,23 @@ class LifePlusScene extends Phaser.Scene {
     this.moveVector = { x: 0, y: 0 };
     this.joystickPointer = null;
     this.runHeld = false;
+    this.profile = LifePlusAuth.getProfile();
     this.nearStation = false;
     this.playerDirection = "";
   }
 
   preload() {
-    this.load.image("male_down", "assets/male_down.png?v=16");
-    this.load.image("male_up", "assets/male_up.png?v=16");
-    this.load.image("male_left", "assets/male_left.png?v=16");
-    this.load.image("male_right", "assets/male_right.png?v=16");
+    this.load.image("male_down", "assets/male_down.png?v=17");
+    this.load.image("male_up", "assets/male_up.png?v=17");
+    this.load.image("male_left", "assets/male_left.png?v=17");
+    this.load.image("male_right", "assets/male_right.png?v=17");
     this.load.image("female", "assets/female.png");
     this.load.image("joystick", "assets/joystick.png");
   }
 
   create() {
+    this.profile = LifePlusAuth.getProfile();
+    this.updateProfileHint();
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
     this.drawCity();
     this.createPlayer();
@@ -35,7 +38,7 @@ class LifePlusScene extends Phaser.Scene {
     this.buildingColliders = this.physics.add.staticGroup();
     this.addBuildingColliders();
     this.physics.add.collider(this.player, this.buildingColliders);
-    this.updateHint("Ти біля вокзалу. Досліджуй місто!");
+    this.updateHint(`Привіт, ${this.profile?.nickname || "гравцю"}! Ти біля вокзалу.`);
     this.scale.on("resize", () => this.layoutControls());
   }
 
@@ -269,6 +272,12 @@ class LifePlusScene extends Phaser.Scene {
     this.moveVector.y = dy / max;
   }
 
+  updateProfileHint() {
+    const p = this.profile || LifePlusAuth.getProfile();
+    const el = document.getElementById("hint");
+    if (el && p) el.textContent = `👤 ${p.nickname} · 💰 ₴${Number(p.cash || 0).toLocaleString("uk-UA")}`;
+  }
+
   updateHint(message) {
     const el = document.getElementById("hint");
     if (el) el.textContent = message;
@@ -371,4 +380,61 @@ new Phaser.Game(config);
   window.addEventListener("orientationchange", () => setTimeout(updateFullscreenButton, 250));
   window.addEventListener("resize", updateFullscreenButton);
   updateFullscreenButton();
+})();
+
+// Авторизація запускається до завантаження гри.
+(async () => {
+  const screen = document.getElementById('auth-screen');
+  const form = document.getElementById('auth-form');
+  const nick = document.getElementById('nickname');
+  const pass = document.getElementById('password');
+  const pass2 = document.getElementById('password2');
+  const subtitle = document.getElementById('auth-subtitle');
+  const submit = document.getElementById('auth-submit');
+  const switchBtn = document.getElementById('auth-switch');
+  const error = document.getElementById('auth-error');
+  if (!screen || !form) return;
+
+  let mode = LifePlusAuth.hasProfile() ? 'login' : 'register';
+  const setMode = () => {
+    const login = mode === 'login';
+    subtitle.textContent = login ? 'Введи пароль для продовження' : 'Створи свій профіль';
+    nick.parentElement.hidden = login;
+    pass2.parentElement.hidden = login;
+    submit.textContent = login ? 'Увійти' : 'Зареєструватися';
+    switchBtn.hidden = !LifePlusAuth.hasProfile();
+    switchBtn.textContent = login ? 'Створити новий профіль' : 'Увійти в існуючий профіль';
+    pass.autocomplete = login ? 'current-password' : 'new-password';
+    pass2.autocomplete = 'new-password';
+    error.textContent = '';
+  };
+  setMode();
+
+  switchBtn.addEventListener('click', () => {
+    mode = mode === 'login' ? 'register' : 'login';
+    setMode();
+  });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    error.textContent = '';
+    submit.disabled = true;
+    try {
+      if (mode === 'register') {
+        if (pass.value !== pass2.value) throw new Error('Паролі не збігаються.');
+        await LifePlusAuth.register(nick.value.trim(), pass.value);
+      } else {
+        await LifePlusAuth.login(pass.value);
+      }
+      screen.hidden = true;
+      if (window.Telegram?.WebApp) window.Telegram.WebApp.ready();
+      window.dispatchEvent(new Event('lifeplus-auth-ready'));
+    } catch (err) {
+      error.textContent = err.message || 'Помилка авторизації.';
+    } finally {
+      submit.disabled = false;
+    }
+  });
+
+  if (LifePlusAuth.isLoggedIn()) screen.hidden = true;
 })();
