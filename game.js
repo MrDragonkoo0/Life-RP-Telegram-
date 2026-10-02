@@ -217,19 +217,19 @@ class LifePlusScene extends Phaser.Scene {
   createHud() {
     this.hud = this.add.container(0, 0).setScrollFactor(0).setDepth(150);
 
-    const panel = this.add.rectangle(18, 92, 360, 72, 0x101820, 0.88)
+    const panel = this.add.rectangle(18, 16, 360, 72, 0x101820, 0.88)
       .setOrigin(0).setStrokeStyle(2, 0x33495a, 0.9);
-    const nick = this.add.text(34, 101, this.profile?.nickname || "Гравець", {
+    const nick = this.add.text(34, 25, this.profile?.nickname || "Гравець", {
       fontFamily: "Arial", fontSize: "20px", fontStyle: "bold", color: "#ffffff"
     });
-    const level = this.add.text(34, 128, `⭐ Lv.${Number(this.profile?.level || 1)}  XP ${Number(this.profile?.xp || 0)}/100`, {
+    const level = this.add.text(34, 52, `⭐ Lv.${Number(this.profile?.level || 1)}  XP ${Number(this.profile?.xp || 0)}/100`, {
       fontFamily: "Arial", fontSize: "13px", color: "#dbe7f0"
     });
-    this.moneyIcon = this.add.image(185, 116, "money_icon").setDisplaySize(34, 29);
-    this.moneyText = this.add.text(207, 107, `₴ ${Number(this.profile?.cash || 0).toLocaleString("uk-UA")}`, {
+    this.moneyIcon = this.add.image(185, 40, "money_icon").setDisplaySize(34, 29);
+    this.moneyText = this.add.text(207, 31, `₴ ${Number(this.profile?.cash || 0).toLocaleString("uk-UA")}`, {
       fontFamily: "Arial", fontSize: "17px", fontStyle: "bold", color: "#ffffff"
     });
-    this.settingsButton = this.add.image(GAME_W - 38, 100, "settings_icon")
+    this.settingsButton = this.add.image(GAME_W - 38, 24, "settings_icon")
       .setDisplaySize(52, 53).setInteractive({ useHandCursor: false });
     this.settingsButton.on("pointerdown", () => this.updateHint("Налаштування будуть доступні у наступному етапі."));
     this.hud.add([panel, nick, level, this.moneyIcon, this.moneyText, this.settingsButton]);
@@ -285,7 +285,7 @@ class LifePlusScene extends Phaser.Scene {
     const s = Math.min(scaleX, scaleY);
     this.joy.setPosition(112, GAME_H - 112).setScale(0.86);
     this.runButton.setPosition(GAME_W - 105, GAME_H - 105).setDisplaySize(82, 84);
-    if (this.settingsButton) this.settingsButton.setPosition(GAME_W - 38, 100).setDisplaySize(52, 53);
+    if (this.settingsButton) this.settingsButton.setPosition(GAME_W - 38, 24).setDisplaySize(52, 53);
   }
 
   readJoystick(pointer) {
@@ -398,13 +398,16 @@ new Phaser.Game(config);
   }
 
   async function enterGameMode() {
-    // Telegram Mini App: розгорнути WebView, якщо API доступний.
+    // Telegram Mini App: розгорнути WebView і запросити повноекранний режим.
+    // У fullscreen Telegram прибирає верхню та нижню панелі Mini App.
     try {
       const tg = window.Telegram && window.Telegram.WebApp;
       if (tg) {
         tg.ready();
         tg.expand();
+        if (typeof tg.setHeaderColor === "function") tg.setHeaderColor("#101820");
         if (typeof tg.requestFullscreen === "function") tg.requestFullscreen();
+        if (typeof tg.disableVerticalSwipes === "function") tg.disableVerticalSwipes();
       }
     } catch (_) {}
 
@@ -427,10 +430,41 @@ new Phaser.Game(config);
   }
 
   fullscreenButtons.forEach(button => button.addEventListener("click", enterGameMode));
+
+  // Telegram може дозволити fullscreen після взаємодії користувача.
+  // Тому на першому дотику до гри одразу просимо fullscreen.
+  let firstInteractionHandled = false;
+  function requestFullscreenOnFirstInteraction() {
+    if (firstInteractionHandled) return;
+    firstInteractionHandled = true;
+    enterGameMode();
+    root.removeEventListener("pointerdown", requestFullscreenOnFirstInteraction, true);
+    root.removeEventListener("touchstart", requestFullscreenOnFirstInteraction, true);
+  }
+  root.addEventListener("pointerdown", requestFullscreenOnFirstInteraction, true);
+  root.addEventListener("touchstart", requestFullscreenOnFirstInteraction, true);
+
   document.addEventListener("fullscreenchange", updateFullscreenButton);
   document.addEventListener("webkitfullscreenchange", updateFullscreenButton);
   window.addEventListener("orientationchange", () => setTimeout(updateFullscreenButton, 250));
   window.addEventListener("resize", updateFullscreenButton);
+
+  // Для гри одразу просимо fullscreen у Telegram, щоб верхня панель
+  // із «Закрити» та «⋮» не займала місце над ігровою областю.
+  setTimeout(() => {
+    try {
+      const tg = window.Telegram && Telegram.WebApp;
+      if (tg) {
+        tg.ready();
+        tg.expand();
+        if (typeof tg.setHeaderColor === "function") tg.setHeaderColor("#101820");
+        if (typeof tg.requestFullscreen === "function") tg.requestFullscreen();
+        if (typeof tg.disableVerticalSwipes === "function") tg.disableVerticalSwipes();
+      }
+    } catch (_) {}
+    updateFullscreenButton();
+  }, 250);
+
   updateFullscreenButton();
 })();
 
