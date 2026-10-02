@@ -12,6 +12,8 @@ class LifePlusScene extends Phaser.Scene {
     this.profile = LifePlusAuth.getProfile();
     this.nearStation = false;
     this.playerDirection = "";
+    this.lastSaveAt = 0;
+    this.saveInFlight = false;
   }
 
   preload() {
@@ -39,6 +41,7 @@ class LifePlusScene extends Phaser.Scene {
     this.addBuildingColliders();
     this.physics.add.collider(this.player, this.buildingColliders);
     this.updateHint(`Привіт, ${this.profile?.nickname || "гравцю"}! Ти біля вокзалу.`);
+    this.syncProfileToServer(true);
     this.scale.on("resize", () => this.layoutControls());
   }
 
@@ -150,7 +153,9 @@ class LifePlusScene extends Phaser.Scene {
   createPlayer() {
     const saved = localStorage.getItem("lifeplus_gender") || "male";
     const key = saved === "female" ? "female" : "male_down";
-    this.player = this.physics.add.sprite(200, 600, key);
+    const startX = Number.isFinite(Number(this.profile?.posX)) ? Number(this.profile.posX) : 200;
+    const startY = Number.isFinite(Number(this.profile?.posY)) ? Number(this.profile.posY) : 600;
+    this.player = this.physics.add.sprite(startX, startY, key);
     this.player.setDepth(10);
     this.player.setScale(1.35);
     this.player.setCollideWorldBounds(true);
@@ -309,6 +314,30 @@ class LifePlusScene extends Phaser.Scene {
     this.nearStation = Phaser.Math.Distance.Between(this.player.x, this.player.y, 200, 520) < 115;
     if (this.nearStation) this.updateHint("Вокзал поруч · натисни «ВЗАЄМОДІЯ»");
     this.player.setDepth(this.player.y + 20);
+
+    if (this.time.now - this.lastSaveAt > 5000) {
+      this.syncProfileToServer();
+    }
+  }
+
+  async syncProfileToServer(force = false) {
+    if (!this.player || this.saveInFlight) return;
+    if (!force && this.time && this.time.now - this.lastSaveAt < 5000) return;
+    this.saveInFlight = true;
+    try {
+      const gender = localStorage.getItem("lifeplus_gender") === "female" ? "female" : "male";
+      this.profile = await LifePlusAuth.updateProfile({
+        gender,
+        posX: this.player.x,
+        posY: this.player.y
+      });
+      this.updateProfileHint();
+      this.lastSaveAt = this.time ? this.time.now : 0;
+    } catch (err) {
+      console.warn("Life+ RP: не вдалося зберегти прогрес", err);
+    } finally {
+      this.saveInFlight = false;
+    }
   }
 }
 
@@ -410,6 +439,20 @@ new Phaser.Game(config);
   };
   setMode();
 
+  if (LifePlusAuth.isLoggedIn()) {
+    try {
+      await LifePlusAuth.refreshProfile();
+      screen.hidden = true;
+      if (window.Telegram?.WebApp) window.Telegram.WebApp.ready();
+      window.dispatchEvent(new Event('lifeplus-auth-ready'));
+      return;
+    } catch (_) {
+      await LifePlusAuth.logout();
+      mode = 'register';
+      setMode();
+    }
+  }
+
   switchBtn.addEventListener('click', () => {
     mode = mode === 'login' ? 'register' : 'login';
     setMode();
@@ -436,5 +479,4 @@ new Phaser.Game(config);
     }
   });
 
-  if (LifePlusAuth.isLoggedIn()) screen.hidden = true;
 })();
