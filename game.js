@@ -1,7 +1,7 @@
 const GAME_W = 1280;
 const GAME_H = 720;
-const WORLD_W = 2560;
-const WORLD_H = 1920;
+const WORLD_W = 6144;
+const WORLD_H = 4096;
 
 class LifePlusScene extends Phaser.Scene {
   constructor() {
@@ -27,6 +27,7 @@ class LifePlusScene extends Phaser.Scene {
     this.load.image("joystick_down", "assets/joystick_down.png");
     this.load.image("joystick_left", "assets/joystick_left.png");
     this.load.image("joystick_right", "assets/joystick_right.png");
+    this.load.image("world_map", "assets/world_map.png");
     this.load.image("run_icon", "assets/біг.png");
     this.load.image("money_icon", "assets/гроші.png");
     this.load.image("settings_icon", "assets/налаштування.png");
@@ -37,7 +38,7 @@ class LifePlusScene extends Phaser.Scene {
     this.updateProfileHint();
     this.createHud();
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
-    this.drawCity();
+    this.createWorldMap();
     this.createPlayer();
     this.createControls();
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
@@ -45,124 +46,34 @@ class LifePlusScene extends Phaser.Scene {
     this.cameras.main.setZoom(1);
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys("W,A,S,D,SHIFT,E");
-    this.buildingColliders = this.physics.add.staticGroup();
-    this.addBuildingColliders();
-    this.physics.add.collider(this.player, this.buildingColliders);
     this.updateHint("");
     this.syncProfileToServer(true);
     this.scale.on("resize", () => this.layoutControls());
   }
 
-  drawCity() {
-    const g = this.add.graphics();
-    // Grass / ground base
-    g.fillStyle(0x5d8057, 1);
-    g.fillRect(0, 0, WORLD_W, WORLD_H);
+  createWorldMap() {
+    // Велика карта Life+ RP: місто + села + природа + море + гори.
+    // Співвідношення 6144×4096 відповідає вихідній карті 1536×1024.
+    this.worldMap = this.add.image(WORLD_W / 2, WORLD_H / 2, "world_map")
+      .setOrigin(0.5)
+      .setDisplaySize(WORLD_W, WORLD_H)
+      .setDepth(0);
 
-    // City blocks and roads
-    const roadColor = 0x343b43;
-    const sidewalkColor = 0xb7b4a7;
-    const roadXs = [360, 960, 1560, 2160];
-    const roadYs = [330, 850, 1370];
-    roadXs.forEach(x => {
-      g.fillStyle(sidewalkColor, 1); g.fillRect(x - 24, 0, 168, WORLD_H);
-      g.fillStyle(roadColor, 1); g.fillRect(x, 0, 120, WORLD_H);
-      g.lineStyle(3, 0xd6cfae, 0.8);
-      for (let y = 0; y < WORLD_H; y += 72) {
-        g.lineBetween(x + 60, y + 10, x + 60, y + 42);
-      }
-    });
-    roadYs.forEach(y => {
-      g.fillStyle(sidewalkColor, 1); g.fillRect(0, y - 24, WORLD_W, 168);
-      g.fillStyle(roadColor, 1); g.fillRect(0, y, WORLD_W, 120);
-      g.lineStyle(3, 0xd6cfae, 0.8);
-      for (let x = 0; x < WORLD_W; x += 72) {
-        g.lineBetween(x + 10, y + 60, x + 42, y + 60);
-      }
-    });
+    // Гра не повинна обрізати краї карти.
+    this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
 
-    // Decorative green patches
-    for (let x = 90; x < WORLD_W; x += 300) {
-      for (let y = 80; y < WORLD_H; y += 270) {
-        if (this.isRoadArea(x, y)) continue;
-        g.fillStyle(0x6e9662, 0.7);
-        g.fillRoundedRect(x, y, 145, 110, 12);
-      }
-    }
-
-    this.buildingRects = [];
-    const colors = [0xc6b49a, 0xb8c4c8, 0xc6a18e, 0xd2c7ae, 0xa9b8a0, 0xc0b7cc];
-    let bi = 0;
-    for (let x = 75; x < WORLD_W - 180; x += 300) {
-      for (let y = 65; y < WORLD_H - 150; y += 270) {
-        if (this.isRoadArea(x + 100, y + 80)) continue;
-        const bx = x + ((bi % 2) * 22);
-        const by = y + ((bi % 3) * 12);
-        const bw = 150 + (bi % 2) * 28;
-        const bh = 125 + (bi % 3) * 10;
-        const col = colors[bi % colors.length];
-
-        // Building shadow, wall, roof and windows
-        g.fillStyle(0x25332b, 0.45); g.fillRoundedRect(bx + 10, by + 12, bw, bh, 8);
-        g.fillStyle(0x8b8b80, 1); g.fillRect(bx - 8, by - 8, bw + 16, bh + 16);
-        g.fillStyle(col, 1); g.fillRoundedRect(bx, by, bw, bh, 5);
-        g.fillStyle(0x625f5b, 1); g.fillRect(bx + 12, by + 12, bw - 24, 14);
-        g.fillStyle(0x6d9da9, 1);
-        for (let wx = bx + 20; wx < bx + bw - 15; wx += 38) {
-          g.fillRect(wx, by + 42, 20, 25);
-          g.lineStyle(2, 0xe4d9c7, 1);
-          g.lineBetween(wx + 10, by + 42, wx + 10, by + 67);
-        }
-        g.fillStyle(0x725d4b, 1); g.fillRect(bx + bw/2 - 12, by + bh - 35, 24, 35);
-        this.buildingRects.push({ x: bx, y: by, w: bw, h: bh });
-        bi++;
-      }
-    }
-
-    // Trees in parks
-    for (let x = 150; x < WORLD_W; x += 300) {
-      for (let y = 180; y < WORLD_H; y += 270) {
-        if (this.isRoadArea(x, y)) continue;
-        this.drawTree(g, x, y);
-      }
-    }
-
-    // Station area / sign
-    g.fillStyle(0xeee4cb, 1); g.fillRoundedRect(105, 455, 190, 85, 8);
-    g.fillStyle(0x5a6b72, 1); g.fillRoundedRect(116, 466, 168, 62, 5);
-    g.fillStyle(0xffffff, 1);
-    g.fillRect(134, 484, 12, 26); g.fillRect(154, 484, 12, 26);
-    g.fillRect(174, 484, 12, 26); g.fillRect(194, 484, 12, 26);
-    g.fillStyle(0x263a46, 1); g.fillRect(215, 478, 48, 38);
-    this.add.text(200, 444, "ВОКЗАЛ", {
-      fontFamily: "Arial", fontSize: "22px", color: "#ffffff",
-      stroke: "#18252c", strokeThickness: 4
-    }).setOrigin(0.5).setDepth(4);
-
-    // Subtle map grid
-    g.lineStyle(1, 0x263e30, 0.16);
-    for (let x = 0; x <= WORLD_W; x += 64) g.lineBetween(x, 0, x, WORLD_H);
-    for (let y = 0; y <= WORLD_H; y += 64) g.lineBetween(0, y, WORLD_W, y);
-  }
-
-  isRoadArea(x, y) {
-    const inV = [360, 960, 1560, 2160].some(rx => x >= rx - 35 && x <= rx + 155);
-    const inH = [330, 850, 1370].some(ry => y >= ry - 35 && y <= ry + 155);
-    return inV || inH;
-  }
-
-  drawTree(g, x, y) {
-    g.fillStyle(0x4a392b, 1); g.fillRect(x - 5, y + 8, 10, 22);
-    g.fillStyle(0x2f593b, 1); g.fillCircle(x, y, 22);
-    g.fillStyle(0x47794a, 1); g.fillCircle(x - 7, y - 7, 14);
-    g.fillStyle(0x65965a, 1); g.fillCircle(x + 6, y - 8, 10);
+    // Точка старту — район центрального вокзалу в нижній частині міста.
+    this.stationPoint = { x: 2800, y: 2750 };
+    this.add.circle(this.stationPoint.x, this.stationPoint.y, 18, 0x4da3ff, 0.0)
+      .setStrokeStyle(3, 0x4da3ff, 0.85)
+      .setDepth(3);
   }
 
   createPlayer() {
     const saved = localStorage.getItem("lifeplus_gender") || "male";
     const key = saved === "female" ? "female" : "male_down";
-    const startX = Number.isFinite(Number(this.profile?.posX)) ? Number(this.profile.posX) : 200;
-    const startY = Number.isFinite(Number(this.profile?.posY)) ? Number(this.profile.posY) : 600;
+    const startX = Number.isFinite(Number(this.profile?.posX)) ? Number(this.profile.posX) : this.stationPoint.x;
+    const startY = Number.isFinite(Number(this.profile?.posY)) ? Number(this.profile.posY) : this.stationPoint.y;
     this.player = this.physics.add.sprite(startX, startY, key);
     this.player.setDepth(10);
     this.player.setScale(1.35);
@@ -241,7 +152,7 @@ class LifePlusScene extends Phaser.Scene {
 
   createControls() {
     this.joy = this.add.image(112, GAME_H - 112, "joystick_idle")
-      .setScrollFactor(0).setDepth(100).setAlpha(0.94).setDisplaySize(180, 180);
+      .setScrollFactor(0).setDepth(100).setAlpha(0.94).setScale(0.86);
     this.joy.setInteractive({ useHandCursor: false });
     this.runButton = this.add.image(GAME_W - 105, GAME_H - 110, "run_icon")
       .setScrollFactor(0).setDepth(101).setDisplaySize(82, 84).setInteractive({ useHandCursor: false });
@@ -288,7 +199,7 @@ class LifePlusScene extends Phaser.Scene {
     const scaleX = this.scale.width / GAME_W;
     const scaleY = this.scale.height / GAME_H;
     const s = Math.min(scaleX, scaleY);
-    this.joy.setPosition(112, GAME_H - 112).setDisplaySize(180, 180);
+    this.joy.setPosition(112, GAME_H - 112).setScale(0.86);
     this.runButton.setPosition(GAME_W - 105, GAME_H - 105).setDisplaySize(82, 84);
     if (this.settingsButton) this.settingsButton.setPosition(GAME_W - 38, 24).setDisplaySize(52, 53);
   }
@@ -303,13 +214,12 @@ class LifePlusScene extends Phaser.Scene {
     this.moveVector.x = dx / max;
     this.moveVector.y = dy / max;
 
-    // Стан текстури джойстика відповідає напрямку руху персонажа.
-    if (Math.abs(this.moveVector.x) > Math.abs(this.moveVector.y)) {
-      this.joy.setTexture(this.moveVector.x < 0 ? "joystick_left" : "joystick_right");
-    } else if (Math.abs(this.moveVector.y) > 0.08) {
-      this.joy.setTexture(this.moveVector.y < 0 ? "joystick_up" : "joystick_down");
-    } else {
+    if (Math.abs(this.moveVector.x) < 0.12 && Math.abs(this.moveVector.y) < 0.12) {
       this.joy.setTexture("joystick_idle");
+    } else if (Math.abs(this.moveVector.x) > Math.abs(this.moveVector.y)) {
+      this.joy.setTexture(this.moveVector.x < 0 ? "joystick_left" : "joystick_right");
+    } else {
+      this.joy.setTexture(this.moveVector.y < 0 ? "joystick_up" : "joystick_down");
     }
   }
 
@@ -348,7 +258,7 @@ class LifePlusScene extends Phaser.Scene {
       }
     }
 
-    this.nearStation = Phaser.Math.Distance.Between(this.player.x, this.player.y, 200, 520) < 115;
+    this.nearStation = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.stationPoint.x, this.stationPoint.y) < 115;
     if (this.nearStation) this.updateHint("Вокзал поруч · натисни «ВЗАЄМОДІЯ»");
     this.player.setDepth(this.player.y + 20);
 
