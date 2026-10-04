@@ -75,11 +75,12 @@ class LifePlusScene extends Phaser.Scene {
     const startX = Number.isFinite(Number(this.profile?.posX)) ? Number(this.profile.posX) : this.stationPoint.x;
     const startY = Number.isFinite(Number(this.profile?.posY)) ? Number(this.profile.posY) : this.stationPoint.y;
     this.player = this.physics.add.sprite(startX, startY, key);
+    this.player.setDisplaySize(48, 84);
     this.player.setDepth(10);
-    this.player.setScale(1.35);
+    this.player.setScale(1);
     this.player.setCollideWorldBounds(true);
-    this.player.body.setSize(24, 38);
-    this.player.body.setOffset(10, 36);
+    this.player.body.setSize(18, 28);
+    this.player.body.setOffset(15, 51);
 
     // Чотири напрямки нового чоловічого персонажа.
     if (saved !== "female") {
@@ -107,11 +108,11 @@ class LifePlusScene extends Phaser.Scene {
     }
     this.player.setTexture(textureKey);
 
-    // Усі 4 напрямки мають однаковий кадр 64×112 px та однаковий
-    // візуальний габарит персонажа 49×90 px, тому масштаб не стрибає.
-    this.player.setDisplaySize(64, 112);
-    this.player.body.setSize(24, 38);
-    this.player.body.setOffset(20, 68);
+    // Усі 4 напрямки мають однаковий кадр 48×84 px та однаковий
+    // візуальний габарит персонажа, щоб він не виглядав завеликим на вулицях, тому масштаб не стрибає.
+    this.player.setDisplaySize(48, 84);
+    this.player.body.setSize(18, 28);
+    this.player.body.setOffset(15, 51);
   }
 
   addBuildingColliders() {
