@@ -22,7 +22,11 @@ class LifePlusScene extends Phaser.Scene {
     this.load.image("male_left", "assets/male_left.png?v=17");
     this.load.image("male_right", "assets/male_right.png?v=17");
     this.load.image("female", "assets/female.png");
-    this.load.image("joystick", "assets/joystick.png");
+    this.load.image("joystick_idle", "assets/joystick_idle.png");
+    this.load.image("joystick_up", "assets/joystick_up.png");
+    this.load.image("joystick_down", "assets/joystick_down.png");
+    this.load.image("joystick_left", "assets/joystick_left.png");
+    this.load.image("joystick_right", "assets/joystick_right.png");
     this.load.image("run_icon", "assets/біг.png");
     this.load.image("money_icon", "assets/гроші.png");
     this.load.image("settings_icon", "assets/налаштування.png");
@@ -236,8 +240,8 @@ class LifePlusScene extends Phaser.Scene {
   }
 
   createControls() {
-    this.joy = this.add.image(112, GAME_H - 112, "joystick")
-      .setScrollFactor(0).setDepth(100).setAlpha(0.94).setScale(0.86);
+    this.joy = this.add.image(112, GAME_H - 112, "joystick_idle")
+      .setScrollFactor(0).setDepth(100).setAlpha(0.94).setDisplaySize(180, 180);
     this.joy.setInteractive({ useHandCursor: false });
     this.runButton = this.add.image(GAME_W - 105, GAME_H - 110, "run_icon")
       .setScrollFactor(0).setDepth(101).setDisplaySize(82, 84).setInteractive({ useHandCursor: false });
@@ -261,6 +265,7 @@ class LifePlusScene extends Phaser.Scene {
       if (this.joystickPointer === pointer.id) {
         this.joystickPointer = null;
         this.moveVector.x = 0; this.moveVector.y = 0;
+        this.joy.setTexture("joystick_idle");
       }
     });
   }
@@ -283,7 +288,7 @@ class LifePlusScene extends Phaser.Scene {
     const scaleX = this.scale.width / GAME_W;
     const scaleY = this.scale.height / GAME_H;
     const s = Math.min(scaleX, scaleY);
-    this.joy.setPosition(112, GAME_H - 112).setScale(0.86);
+    this.joy.setPosition(112, GAME_H - 112).setDisplaySize(180, 180);
     this.runButton.setPosition(GAME_W - 105, GAME_H - 105).setDisplaySize(82, 84);
     if (this.settingsButton) this.settingsButton.setPosition(GAME_W - 38, 24).setDisplaySize(52, 53);
   }
@@ -297,6 +302,15 @@ class LifePlusScene extends Phaser.Scene {
     if (len > max) { dx *= max / len; dy *= max / len; }
     this.moveVector.x = dx / max;
     this.moveVector.y = dy / max;
+
+    // Стан текстури джойстика відповідає напрямку руху персонажа.
+    if (Math.abs(this.moveVector.x) > Math.abs(this.moveVector.y)) {
+      this.joy.setTexture(this.moveVector.x < 0 ? "joystick_left" : "joystick_right");
+    } else if (Math.abs(this.moveVector.y) > 0.08) {
+      this.joy.setTexture(this.moveVector.y < 0 ? "joystick_up" : "joystick_down");
+    } else {
+      this.joy.setTexture("joystick_idle");
+    }
   }
 
   updateProfileHint() {
