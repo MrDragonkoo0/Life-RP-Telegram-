@@ -17,13 +17,9 @@
 
             <form id="registerForm" novalidate>
                 <div class="field">
-                    <label for="nickname">Нікнейм</label>
-                    <input id="nickname" name="nickname" type="text" minlength="3" maxlength="24" autocomplete="username" placeholder="Ваш нікнейм" required>
-                </div>
-
-                <div class="field">
-                    <label for="characterName">Ім'я персонажа</label>
-                    <input id="characterName" name="characterName" type="text" minlength="2" maxlength="32" placeholder="Ім'я персонажа" required>
+                    <label for="nickname">Нікнейм персонажа</label>
+                    <input id="nickname" name="nickname" type="text" minlength="5" maxlength="32" autocomplete="username" placeholder="Петро_Олексієвич" required>
+                    <small>Формат: Ім'я_Прізвище</small>
                 </div>
 
                 <div class="field">
@@ -73,12 +69,8 @@
 
             <div class="profile-info">
                 <div>
-                    <span>Нікнейм</span>
+                    <span>Ім'я персонажа</span>
                     <strong id="profileNickname">—</strong>
-                </div>
-                <div>
-                    <span>Персонаж</span>
-                    <strong id="profileCharacterName">—</strong>
                 </div>
             </div>
         </section>

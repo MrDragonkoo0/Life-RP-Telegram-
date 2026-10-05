@@ -18,7 +18,6 @@ const elements = {
     balance: document.getElementById('balance'),
     level: document.getElementById('level'),
     profileNickname: document.getElementById('profileNickname'),
-    profileCharacterName: document.getElementById('profileCharacterName')
 };
 
 function getTelegramId() {
@@ -36,7 +35,6 @@ function clearError() {
 function getFormData() {
     return {
         nickname: document.getElementById('nickname').value.trim(),
-        characterName: document.getElementById('characterName').value.trim(),
         gender: document.getElementById('gender').value,
         password: document.getElementById('password').value,
         passwordConfirm: document.getElementById('passwordConfirm').value
@@ -44,12 +42,12 @@ function getFormData() {
 }
 
 function validateForm(data) {
-    if (data.nickname.length < 3) {
-        return 'Нікнейм має містити мінімум 3 символи.';
+    if (data.nickname.length < 5) {
+        return 'Нікнейм має містити мінімум 5 символів.';
     }
 
-    if (data.characterName.length < 2) {
-        return "Ім'я персонажа має містити мінімум 2 символи.";
+    if (!/^[A-Za-zА-Яа-яІіЇїЄєҐґ']+_[A-Za-zА-Яа-яІіЇїЄєҐґ']+$/.test(data.nickname)) {
+        return "Використовуйте формат Ім'я_Прізвище, наприклад Петро_Олексієвич.";
     }
 
     if (!data.gender) {
@@ -70,7 +68,6 @@ function validateForm(data) {
 function createProfile(data) {
     return {
         nickname: data.nickname,
-        characterName: data.characterName,
         gender: data.gender,
         telegramId: getTelegramId(),
         balance: STARTING_BALANCE,
@@ -87,12 +84,11 @@ function showProfile(profile) {
     elements.profile.classList.remove('hidden');
 
     elements.welcome.textContent =
-        `Вітаємо, ${profile.characterName}! Ласкаво просимо до Life+ RP.`;
+        `Вітаємо, ${profile.nickname}! Ласкаво просимо до Life+ RP.`;
 
     elements.balance.textContent = `₴${profile.balance.toLocaleString('uk-UA')}`;
     elements.level.textContent = profile.level;
     elements.profileNickname.textContent = profile.nickname;
-    elements.profileCharacterName.textContent = profile.characterName;
 }
 
 function loadSavedProfile() {
@@ -105,7 +101,7 @@ function loadSavedProfile() {
     try {
         const profile = JSON.parse(savedProfile);
 
-        if (profile?.nickname && profile?.characterName) {
+        if (profile?.nickname) {
             showProfile(profile);
         }
     } catch {
