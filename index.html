@@ -1,1 +1,89 @@
-<!doctype html><html lang="uk"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Life+ RP</title><link rel="stylesheet" href="style.css"></head><body><main class="app"><section class="card" id="registration"><div class="logo">LIFE<span>+</span> RP</div><p class="subtitle">Text MMO Role Play</p><form id="registerForm"><label>Нікнейм<input id="nickname" minlength="3" required></label><label>Ім'я персонажа<input id="characterName" minlength="2" required></label><label>Стать<select id="gender" required><option value="">Оберіть стать</option><option value="male">Чоловік</option><option value="female">Жінка</option></select></label><label>Пароль<input id="password" type="password" minlength="6" required></label><label>Підтвердження пароля<input id="passwordConfirm" type="password" minlength="6" required></label><p class="error" id="error"></p><button type="submit">ЗАРЕЄСТРУВАТИСЬ</button></form></section><section class="card success hidden" id="profile"><div class="logo">LIFE<span>+</span> RP</div><h2>Реєстрацію завершено!</h2><div class="stats"><div><small>Баланс</small><strong>₴1000</strong></div><div><small>Рівень</small><strong>1</strong></div></div><p id="welcome"></p></section></main><script src="app.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0b1020">
+    <title>Life+ RP — Text MMO</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="app">
+        <section class="card" id="registration">
+            <header class="header">
+                <div class="logo">LIFE<span>+</span> RP</div>
+                <p class="subtitle">Text MMO Role Play</p>
+            </header>
+
+            <form id="registerForm" novalidate>
+                <div class="field">
+                    <label for="nickname">Нікнейм</label>
+                    <input id="nickname" name="nickname" type="text" minlength="3" maxlength="24" autocomplete="username" placeholder="Ваш нікнейм" required>
+                </div>
+
+                <div class="field">
+                    <label for="characterName">Ім'я персонажа</label>
+                    <input id="characterName" name="characterName" type="text" minlength="2" maxlength="32" placeholder="Ім'я персонажа" required>
+                </div>
+
+                <div class="field">
+                    <label for="gender">Стать</label>
+                    <select id="gender" name="gender" required>
+                        <option value="">Оберіть стать</option>
+                        <option value="male">Чоловік</option>
+                        <option value="female">Жінка</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label for="password">Пароль</label>
+                    <input id="password" name="password" type="password" minlength="6" maxlength="64" autocomplete="new-password" placeholder="Мінімум 6 символів" required>
+                </div>
+
+                <div class="field">
+                    <label for="passwordConfirm">Підтвердження пароля</label>
+                    <input id="passwordConfirm" name="passwordConfirm" type="password" minlength="6" maxlength="64" autocomplete="new-password" placeholder="Повторіть пароль" required>
+                </div>
+
+                <p class="error" id="error" role="alert" aria-live="polite"></p>
+                <button class="primary-button" type="submit">ЗАРЕЄСТРУВАТИСЬ</button>
+            </form>
+        </section>
+
+        <section class="card profile-card hidden" id="profile" aria-live="polite">
+            <header class="header">
+                <div class="logo">LIFE<span>+</span> RP</div>
+                <p class="subtitle">Text MMO Role Play</p>
+            </header>
+
+            <div class="success-icon">✓</div>
+            <h1>Реєстрацію завершено!</h1>
+            <p class="welcome" id="welcome"></p>
+
+            <div class="stats">
+                <div class="stat">
+                    <span>Баланс</span>
+                    <strong id="balance">₴1 000</strong>
+                </div>
+                <div class="stat">
+                    <span>Рівень</span>
+                    <strong id="level">1</strong>
+                </div>
+            </div>
+
+            <div class="profile-info">
+                <div>
+                    <span>Нікнейм</span>
+                    <strong id="profileNickname">—</strong>
+                </div>
+                <div>
+                    <span>Персонаж</span>
+                    <strong id="profileCharacterName">—</strong>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
