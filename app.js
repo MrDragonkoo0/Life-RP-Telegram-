@@ -2,7 +2,11 @@ const STORAGE_KEY = "lifePlusDemoProfile";
 const STARTING_BALANCE = 1000;
 const STARTING_LEVEL = 1;
 const telegram = window.Telegram?.WebApp ?? null;
-if (telegram) { telegram.ready(); telegram.expand(); }
+if (telegram) {
+  telegram.ready();
+  telegram.expand();
+  document.documentElement.classList.add("telegram-webapp");
+}
 
 const $ = (id) => document.getElementById(id);
 const screens = { registration: $("registration"), game: $("game"), subscreen: $("subscreen") };
