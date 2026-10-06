@@ -10,7 +10,7 @@
 <body>
 <main class="app">
 <section class="screen" id="registration">
-<header class="hero"><div class="logo">LIFE<span>+</span> RP</div><p>Текстова рольова гра в Telegram</p><b>v0.1.0</b></header>
+<header class="hero"><div class="logo">LIFE<span>+</span> RP</div><p>Текстова рольова гра в Telegram</p><b>v0.1.1</b></header>
 <form id="registerForm" class="panel" novalidate>
 <h1>Створення персонажа</h1>
 <div class="field"><label for="nickname">Нікнейм персонажа</label><input id="nickname" type="text" minlength="5" maxlength="32" placeholder="Петро_Олексієвич" required><small>Формат: Ім'я_Прізвище</small></div>
@@ -21,14 +21,14 @@
 </form></section>
 
 <section class="screen hidden" id="game">
-<header class="game-header"><div><div class="logo small">LIFE<span>+</span> RP</div><div class="subtitle">Текстова рольова гра</div></div><span class="version">v0.1.0</span></header>
-<section class="player-card"><div class="avatar">👤</div><div class="player-main"><h1 id="playerNickname">Петро_Олексієвич</h1><div class="level">⭐ Рівень <b id="playerLevel">1</b></div><div class="xp"><span></span></div><small>0 / 100 XP</small></div><div class="money"><span>💵</span><small>Гроші</small><strong id="playerBalance">₴1 000</strong></div></section>
+<header class="game-header"><div><div class="logo small">LIFE<span>+</span> RP</div><div class="subtitle">Текстова рольова гра</div></div><span class="version">v0.1.1</span></header>
+<section class="player-card"><div class="avatar">👤</div><div class="player-main"><h1 id="playerNickname"></h1><div class="level">⭐ Рівень <b id="playerLevel">1</b></div><div class="xp"><span id="xpFill"></span></div><small id="xpText">0 / 100 XP</small><div class="hp-line">❤️ HP: <b id="playerHp">100/100</b></div></div><div class="money"><span>💵</span><small>Гроші</small><strong id="playerBalance">₴1 000</strong></div></section>
 <section class="menu" id="mainMenu"></section>
 </section>
 
 <section class="screen hidden" id="subscreen">
-<header class="game-header"><div><div class="logo small">LIFE<span>+</span> RP</div><div class="subtitle" id="sectionSubtitle">Розділ</div></div><span class="version">v0.1.0</span></header>
-<section class="panel section-panel"><div class="section-icon" id="sectionIcon">📋</div><h1 id="sectionTitle">Розділ</h1><p id="sectionDescription"></p><div id="sectionContent"></div><button class="back-button bottom-back" id="backButton" type="button"><span class="back-arrow" aria-hidden="true">←</span><span class="back-label">Назад</span></button></section>
+<header class="game-header"><div><div class="logo small">LIFE<span>+</span> RP</div><div class="subtitle" id="sectionSubtitle">Розділ</div></div><span class="version">v0.1.1</span></header>
+<section class="panel section-panel"><div class="section-icon" id="sectionIcon">📋</div><h1 id="sectionTitle">Розділ</h1><p id="sectionDescription"></p><div id="sectionContent"></div><button class="back-button bottom-back" id="backButton" type="button"><span class="back-arrow">←</span><span class="back-label">Назад</span></button></section>
 </section>
 </main>
 <script src="app.js"></script>
